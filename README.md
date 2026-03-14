@@ -49,8 +49,9 @@ Dev mode exposes all ports for local debugging:
 
 ### Test Data
 1. Create an administrator account via directly in the database.
-2. Manually insert some data via the admin import for maps (`/v1/admin/import/maps`) & milestones (`/v1/admin/milestones`). 
+2. Manually insert some data via the batch ranking process (`/v1/maps/admin`, `/v1/batches`, `/v1/batches/{id}/release`) & milestones (`/v1/admin/milestones`). 
 3. Scores and players will sync automatically from ScoreSaber and BeatLeader!
+> Note: I do not recommend running a full import of ALL ranked maps in dev mode, as the backfill is slow and intensive. Use the admin endpoints to create a smaller test dataset.
 
 ## Monitoring
 

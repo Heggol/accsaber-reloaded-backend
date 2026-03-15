@@ -78,7 +78,7 @@ public class UserService {
 
     private static UserResponse toResponse(User user) {
         return UserResponse.builder()
-                .id(user.getId())
+                .id(String.valueOf(user.getId()))
                 .name(user.getName())
                 .avatarUrl(user.getAvatarUrl())
                 .country(user.getCountry())

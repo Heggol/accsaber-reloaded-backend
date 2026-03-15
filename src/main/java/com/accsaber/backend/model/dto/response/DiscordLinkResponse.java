@@ -10,7 +10,7 @@ import lombok.Value;
 public class DiscordLinkResponse {
 
     String discordId;
-    Long userId;
+    String userId;
     String playerName;
     Instant createdAt;
 }

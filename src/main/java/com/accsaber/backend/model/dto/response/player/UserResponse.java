@@ -9,7 +9,7 @@ import lombok.Value;
 @Builder
 public class UserResponse {
 
-    Long id;
+    String id;
     String name;
     String avatarUrl;
     String country;

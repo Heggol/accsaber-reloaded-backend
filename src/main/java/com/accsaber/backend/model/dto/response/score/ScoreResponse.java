@@ -13,7 +13,7 @@ import lombok.Getter;
 public class ScoreResponse {
 
     private UUID id;
-    private Long userId;
+    private String userId;
     private UUID mapDifficultyId;
     private Integer score;
     private Integer scoreNoMods;

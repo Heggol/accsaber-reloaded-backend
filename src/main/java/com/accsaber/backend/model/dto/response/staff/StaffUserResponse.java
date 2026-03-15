@@ -18,7 +18,7 @@ public class StaffUserResponse {
     String email;
     StaffRole role;
     StaffUserStatus status;
-    Long userId;
+    String userId;
     boolean active;
     Instant createdAt;
 }

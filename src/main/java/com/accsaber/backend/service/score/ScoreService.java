@@ -472,7 +472,7 @@ public class ScoreService {
         private ScoreResponse toResponse(Score s, BigDecimal accuracy, List<UUID> modifierIds) {
                 return ScoreResponse.builder()
                                 .id(s.getId())
-                                .userId(s.getUser().getId())
+                                .userId(String.valueOf(s.getUser().getId()))
                                 .mapDifficultyId(s.getMapDifficulty().getId())
                                 .score(s.getScore())
                                 .scoreNoMods(s.getScoreNoMods())

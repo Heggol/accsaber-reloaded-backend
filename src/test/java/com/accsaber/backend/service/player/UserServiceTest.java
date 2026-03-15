@@ -58,7 +58,7 @@ class UserServiceTest {
 
             UserResponse response = userService.findBySteamId(STEAM_ID);
 
-            assertThat(response.getId()).isEqualTo(STEAM_ID);
+            assertThat(response.getId()).isEqualTo(String.valueOf(STEAM_ID));
             assertThat(response.getName()).isEqualTo("TestPlayer");
             assertThat(response.getCountry()).isEqualTo("US");
         }

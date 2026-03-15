@@ -269,7 +269,7 @@ class ScoreIngestionServiceTest {
         private ScoreResponse buildScoreResponse() {
                 return ScoreResponse.builder()
                                 .id(UUID.randomUUID())
-                                .userId(STEAM_ID)
+                                .userId(String.valueOf(STEAM_ID))
                                 .mapDifficultyId(difficulty.getId())
                                 .score(950000)
                                 .ap(new BigDecimal("100.0"))

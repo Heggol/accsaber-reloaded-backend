@@ -59,7 +59,7 @@ public class LeaderboardService {
         return LeaderboardResponse.builder()
                 .ranking(stats.getRanking())
                 .countryRanking(stats.getCountryRanking())
-                .userId(stats.getUser().getId())
+                .userId(String.valueOf(stats.getUser().getId()))
                 .userName(stats.getUser().getName())
                 .country(stats.getUser().getCountry())
                 .avatarUrl(stats.getUser().getAvatarUrl())

@@ -130,7 +130,7 @@ public class StatisticsService {
     static UserCategoryStatisticsResponse toResponse(UserCategoryStatistics s) {
         return UserCategoryStatisticsResponse.builder()
                 .id(s.getId())
-                .userId(s.getUser().getId())
+                .userId(String.valueOf(s.getUser().getId()))
                 .categoryId(s.getCategory().getId())
                 .ranking(s.getRanking())
                 .countryRanking(s.getCountryRanking())

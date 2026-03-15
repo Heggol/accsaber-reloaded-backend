@@ -16,7 +16,7 @@ public class LeaderboardResponse {
 
     private Integer ranking;
     private Integer countryRanking;
-    private Long userId;
+    private String userId;
     private String userName;
     private String country;
     private String avatarUrl;

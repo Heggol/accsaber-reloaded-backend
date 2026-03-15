@@ -12,7 +12,7 @@ import lombok.Getter;
 public class UserCategoryStatisticsResponse {
 
     private UUID id;
-    private Long userId;
+    private String userId;
     private UUID categoryId;
     private Integer ranking;
     private Integer countryRanking;

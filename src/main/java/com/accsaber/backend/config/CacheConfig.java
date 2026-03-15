@@ -3,6 +3,8 @@ package com.accsaber.backend.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +22,8 @@ import java.time.Duration;
 @Configuration
 @EnableCaching
 public class CacheConfig {
+
+        private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
 
         public static final String LEADERBOARD_CACHE = "leaderboard";
 
@@ -56,7 +60,8 @@ public class CacheConfig {
                                 try {
                                         return mapper.readValue(bytes, Object.class);
                                 } catch (IOException e) {
-                                        throw new SerializationException("Could not deserialize cache value", e);
+                                        log.warn("Discarding incompatible cache entry, will be re-cached on next request");
+                                        return null;
                                 }
                         }
                 };

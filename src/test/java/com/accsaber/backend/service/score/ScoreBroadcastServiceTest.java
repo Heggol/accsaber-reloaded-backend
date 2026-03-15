@@ -30,7 +30,7 @@ class ScoreBroadcastServiceTest {
         private ScoreResponse buildScoreResponse() {
                 return ScoreResponse.builder()
                                 .id(UUID.randomUUID())
-                                .userId(76561198000000001L)
+                                .userId("76561198000000001")
                                 .mapDifficultyId(UUID.randomUUID())
                                 .score(950_000)
                                 .ap(new BigDecimal("500.000000"))
@@ -46,7 +46,7 @@ class ScoreBroadcastServiceTest {
                 scoreBroadcastService.onScoreSubmitted(new ScoreSubmittedEvent(score));
 
                 verify(scoreFeedHandler).broadcast(argThat(json -> {
-                        assertThat(json).contains("\"userId\":" + score.getUserId());
+                        assertThat(json).contains("\"userId\":\"" + score.getUserId() + "\"");
                         assertThat(json).contains("\"score\":950000");
                         return true;
                 }));

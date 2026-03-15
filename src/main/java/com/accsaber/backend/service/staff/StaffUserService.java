@@ -193,7 +193,7 @@ public class StaffUserService {
                 .email(staffUser.getEmail())
                 .role(staffUser.getRole())
                 .status(staffUser.getStatus())
-                .userId(staffUser.getUser() != null ? staffUser.getUser().getId() : null)
+                .userId(staffUser.getUser() != null ? String.valueOf(staffUser.getUser().getId()) : null)
                 .active(staffUser.isActive())
                 .createdAt(staffUser.getCreatedAt())
                 .build();

@@ -134,7 +134,7 @@ public class DiscordLinkService {
     private DiscordLinkResponse toResponse(DiscordUserLink link) {
         return DiscordLinkResponse.builder()
                 .discordId(link.getDiscordId())
-                .userId(link.getUser().getId())
+                .userId(String.valueOf(link.getUser().getId()))
                 .playerName(link.getUser().getName())
                 .createdAt(link.getCreatedAt())
                 .build();

@@ -18,6 +18,7 @@ import com.accsaber.backend.model.dto.response.campaign.CampaignProgressResponse
 import com.accsaber.backend.model.dto.response.milestone.LevelResponse;
 import com.accsaber.backend.model.dto.response.milestone.UserMilestoneProgressResponse;
 import com.accsaber.backend.model.dto.response.player.NameHistoryResponse;
+import com.accsaber.backend.model.dto.response.player.UserCategoryStatisticsResponse;
 import com.accsaber.backend.model.dto.response.player.UserResponse;
 import com.accsaber.backend.model.dto.response.score.ScoreResponse;
 import com.accsaber.backend.service.campaign.CampaignService;
@@ -25,6 +26,7 @@ import com.accsaber.backend.service.milestone.LevelService;
 import com.accsaber.backend.service.milestone.MilestoneService;
 import com.accsaber.backend.service.player.UserService;
 import com.accsaber.backend.service.score.ScoreService;
+import com.accsaber.backend.service.stats.StatisticsService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +40,7 @@ public class UserController {
 
     private final UserService userService;
     private final ScoreService scoreService;
+    private final StatisticsService statisticsService;
     private final MilestoneService milestoneService;
     private final LevelService levelService;
     private final CampaignService campaignService;
@@ -55,6 +58,12 @@ public class UserController {
                 .map(h -> new NameHistoryResponse(h.getName(), h.getChangedAt()))
                 .toList();
         return ResponseEntity.ok(history);
+    }
+
+    @Operation(summary = "Get user category statistics", description = "Returns all active category statistics for a player")
+    @GetMapping("/{steamId}/statistics")
+    public ResponseEntity<List<UserCategoryStatisticsResponse>> getUserStatistics(@PathVariable Long steamId) {
+        return ResponseEntity.ok(statisticsService.findByUser(steamId));
     }
 
     @Operation(summary = "Get user scores", description = "Paginated list of a player's active scores, optionally filtered by category")

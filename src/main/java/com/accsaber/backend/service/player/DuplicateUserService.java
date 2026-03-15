@@ -74,26 +74,41 @@ public class DuplicateUserService {
         List<Object[]> rows = entityManager
                 .createNativeQuery(
                         """
-                                SELECT u1.id AS user1_id, u1.name AS user1_name,
-                                    u2.id AS user2_id, u2.name AS user2_name,
-                                    u1.country,
-                                    COUNT(DISTINCT s1.map_difficulty_id) AS shared_difficulties,
-                                    (SELECT COUNT(*) FROM scores bs1 WHERE bs1.user_id = u1.id AND bs1.bl_score_id IS NOT NULL) AS u1_bl_scores,
-                                    (SELECT COUNT(*) FROM scores bs2 WHERE bs2.user_id = u2.id AND bs2.bl_score_id IS NOT NULL) AS u2_bl_scores
-                                FROM users u1
-                                JOIN users u2 ON u1.country = u2.country
-                                            AND u1.id < u2.id
-                                            AND u1.active = true AND u2.active = true
-                                JOIN scores s1 ON s1.user_id = u1.id AND s1.active = true
-                                JOIN scores s2 ON s2.user_id = u2.id AND s2.active = true
-                                            AND s1.map_difficulty_id = s2.map_difficulty_id
-                                WHERE NOT EXISTS (
+                                WITH user_diffs AS (
+                                    SELECT DISTINCT user_id, map_difficulty_id
+                                    FROM scores
+                                    WHERE active = true
+                                ),
+                                shared AS (
+                                    SELECT ud1.user_id AS u1_id, ud2.user_id AS u2_id,
+                                           COUNT(*) AS shared_difficulties
+                                    FROM user_diffs ud1
+                                    JOIN user_diffs ud2 ON ud1.map_difficulty_id = ud2.map_difficulty_id
+                                                       AND ud1.user_id < ud2.user_id
+                                    GROUP BY ud1.user_id, ud2.user_id
+                                    HAVING COUNT(*) >= 15
+                                ),
+                                bl_counts AS (
+                                    SELECT user_id, COUNT(*) AS bl_scores
+                                    FROM scores
+                                    WHERE bl_score_id IS NOT NULL
+                                    GROUP BY user_id
+                                )
+                                SELECT u1.id, u1.name, u2.id, u2.name, u1.country,
+                                       sh.shared_difficulties,
+                                       COALESCE(bc1.bl_scores, 0) AS u1_bl_scores,
+                                       COALESCE(bc2.bl_scores, 0) AS u2_bl_scores
+                                FROM shared sh
+                                JOIN users u1 ON u1.id = sh.u1_id AND u1.active = true
+                                JOIN users u2 ON u2.id = sh.u2_id AND u2.active = true
+                                LEFT JOIN bl_counts bc1 ON bc1.user_id = u1.id
+                                LEFT JOIN bl_counts bc2 ON bc2.user_id = u2.id
+                                WHERE u1.country = u2.country
+                                AND NOT EXISTS (
                                     SELECT 1 FROM users_duplicate_links udl
                                     WHERE udl.secondary_user_id = u1.id OR udl.secondary_user_id = u2.id
                                 )
-                                GROUP BY u1.id, u1.name, u2.id, u2.name, u1.country
-                                HAVING COUNT(DISTINCT s1.map_difficulty_id) >= 15
-                                ORDER BY shared_difficulties DESC
+                                ORDER BY sh.shared_difficulties DESC
                                 """)
                 .getResultList();
 

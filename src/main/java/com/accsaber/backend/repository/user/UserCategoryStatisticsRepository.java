@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,22 +13,52 @@ import com.accsaber.backend.model.entity.user.UserCategoryStatistics;
 
 public interface UserCategoryStatisticsRepository extends JpaRepository<UserCategoryStatistics, UUID> {
 
-        Optional<UserCategoryStatistics> findByUser_IdAndCategory_IdAndActiveTrue(Long userId, UUID categoryId);
+    Optional<UserCategoryStatistics> findByUser_IdAndCategory_IdAndActiveTrue(Long userId, UUID categoryId);
 
-        List<UserCategoryStatistics> findByUser_IdAndActiveTrue(Long userId);
+    List<UserCategoryStatistics> findByUser_IdAndActiveTrue(Long userId);
 
-        @Query("""
-                        SELECT s FROM UserCategoryStatistics s
-                        JOIN FETCH s.user u
-                        WHERE s.category.id = :categoryId AND s.active = true
-                        ORDER BY s.ap DESC
-                        """)
-        List<UserCategoryStatistics> findActiveByCategoryOrderByApDesc(@Param("categoryId") UUID categoryId);
+    @Query("""
+            SELECT s FROM UserCategoryStatistics s
+            JOIN FETCH s.user u
+            WHERE s.category.id = :categoryId AND s.active = true
+            ORDER BY s.ap DESC
+            """)
+    List<UserCategoryStatistics> findActiveByCategoryOrderByApDesc(@Param("categoryId") UUID categoryId);
 
-        @Query("""
-                        SELECT s FROM UserCategoryStatistics s
-                        JOIN FETCH s.category c
-                        WHERE s.user.id = :userId AND s.active = true AND c.countForOverall = true
-                        """)
-        List<UserCategoryStatistics> findActiveByUserWhereCountForOverall(@Param("userId") Long userId);
+    @Query("""
+            SELECT s FROM UserCategoryStatistics s
+            JOIN FETCH s.category c
+            WHERE s.user.id = :userId AND s.active = true AND c.countForOverall = true
+            """)
+    List<UserCategoryStatistics> findActiveByUserWhereCountForOverall(@Param("userId") Long userId);
+
+    @Modifying
+    @Query(value = """
+            WITH ranked AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY ap DESC) AS new_rank
+                FROM user_category_statistics
+                WHERE category_id = :categoryId AND active = true
+            )
+            UPDATE user_category_statistics ucs
+            SET ranking = r.new_rank, updated_at = NOW()
+            FROM ranked r
+            WHERE ucs.id = r.id
+            """, nativeQuery = true)
+    void assignGlobalRankings(@Param("categoryId") UUID categoryId);
+
+    @Modifying
+    @Query(value = """
+            WITH ranked AS (
+                SELECT ucs.id,
+                       ROW_NUMBER() OVER (PARTITION BY u.country ORDER BY ucs.ap DESC) AS new_country_rank
+                FROM user_category_statistics ucs
+                JOIN users u ON ucs.user_id = u.id
+                WHERE ucs.category_id = :categoryId AND ucs.active = true AND u.country IS NOT NULL
+            )
+            UPDATE user_category_statistics ucs
+            SET country_ranking = r.new_country_rank, updated_at = NOW()
+            FROM ranked r
+            WHERE ucs.id = r.id
+            """, nativeQuery = true)
+    void assignCountryRankings(@Param("categoryId") UUID categoryId);
 }

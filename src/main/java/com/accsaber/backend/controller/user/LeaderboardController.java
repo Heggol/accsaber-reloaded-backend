@@ -27,7 +27,7 @@ public class LeaderboardController {
 
     private final LeaderboardService leaderboardService;
 
-    @Operation(summary = "Global leaderboard", description = "Paginated global rankings for a category, sorted by AP descending")
+    @Operation(summary = "Global leaderboard", description = "Paginated global rankings for a category, sorted by ranking ascending")
     @GetMapping("/{categoryId}")
     public ResponseEntity<Page<LeaderboardResponse>> getGlobal(
             @PathVariable UUID categoryId,

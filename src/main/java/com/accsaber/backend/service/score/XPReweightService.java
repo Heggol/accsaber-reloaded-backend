@@ -16,9 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.accsaber.backend.model.entity.score.Score;
-import com.accsaber.backend.model.entity.user.User;
-import com.accsaber.backend.repository.milestone.UserMilestoneLinkRepository;
-import com.accsaber.backend.repository.milestone.UserMilestoneSetBonusRepository;
 import com.accsaber.backend.repository.score.ScoreRepository;
 import com.accsaber.backend.repository.user.UserRepository;
 import com.accsaber.backend.service.map.MapDifficultyComplexityService;
@@ -33,8 +30,6 @@ public class XPReweightService {
 
     private final ScoreRepository scoreRepository;
     private final UserRepository userRepository;
-    private final UserMilestoneLinkRepository userMilestoneLinkRepository;
-    private final UserMilestoneSetBonusRepository userMilestoneSetBonusRepository;
     private final MapDifficultyComplexityService mapComplexityService;
     private final XPCalculationService xpCalculationService;
 
@@ -54,7 +49,7 @@ public class XPReweightService {
             updated += reweightScoresForDifficulty(difficultyId);
         }
 
-        doRecalculateTotalXpForAllUsers();
+        userRepository.recalculateTotalXpForAllActiveUsers();
         log.info("XP reweight complete. Updated {} scores across {} difficulties", updated, difficultyIds.size());
     }
 
@@ -106,39 +101,11 @@ public class XPReweightService {
     }
 
     @Async("taskExecutor")
-    public void recalculateTotalXpForAllUsers() {
-        doRecalculateTotalXpForAllUsers();
-    }
-
-    private void doRecalculateTotalXpForAllUsers() {
-        log.info("Starting total XP recalculation for all users");
-        List<User> users = userRepository.findByActiveTrue();
-
-        List<CompletableFuture<Void>> futures = users.stream()
-                .map(user -> CompletableFuture.runAsync(() -> {
-                    try {
-                        recalculateSingleUserXp(user.getId());
-                    } catch (Exception e) {
-                        log.error("XP recalc failed for user {}", user.getId(), e);
-                    }
-                }, backfillExecutor))
-                .toList();
-
-        futures.forEach(CompletableFuture::join);
-        log.info("Total XP recalculation complete for {} users", users.size());
-    }
-
     @Transactional
-    public void recalculateSingleUserXp(Long userId) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null || !user.isActive())
-            return;
-
-        BigDecimal scoreXp = scoreRepository.sumXpGainedByUserId(userId);
-        BigDecimal milestoneXp = userMilestoneLinkRepository.sumCompletedMilestoneXpByUserId(userId);
-        BigDecimal setBonusXp = userMilestoneSetBonusRepository.sumSetBonusXpByUserId(userId);
-        user.setTotalXp(scoreXp.add(milestoneXp).add(setBonusXp));
-        userRepository.save(user);
+    public void recalculateTotalXpForAllUsers() {
+        log.info("Starting bulk total XP recalculation for all users");
+        userRepository.recalculateTotalXpForAllActiveUsers();
+        log.info("Bulk total XP recalculation complete");
     }
 
 }

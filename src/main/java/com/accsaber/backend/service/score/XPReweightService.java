@@ -2,14 +2,15 @@ package com.accsaber.backend.service.score;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +38,11 @@ public class XPReweightService {
     private final MapDifficultyComplexityService mapComplexityService;
     private final XPCalculationService xpCalculationService;
 
+    @Autowired
+    @Qualifier("backfillExecutor")
+    private Executor backfillExecutor;
+
     @Async("taskExecutor")
-    @Transactional
     public void reweightAllScores() {
         log.info("Starting full XP reweight");
         xpCalculationService.evictXpCurveCache();
@@ -55,7 +59,7 @@ public class XPReweightService {
     }
 
     private int reweightScoresForDifficulty(UUID difficultyId) {
-        List<Score> scores = scoreRepository.findByMapDifficulty_Id(difficultyId);
+        List<Score> scores = scoreRepository.findByMapDifficulty_IdAndActiveTrue(difficultyId);
         if (scores.isEmpty()) {
             return 0;
         }
@@ -72,45 +76,59 @@ public class XPReweightService {
         BigDecimal complexity = mapComplexityService.findActiveComplexity(difficultyId)
                 .orElse(BigDecimal.ONE);
 
-        Map<Long, List<Score>> byUser = scores.stream()
-                .filter(s -> s.getUser() != null)
-                .collect(Collectors.groupingBy(s -> s.getUser().getId()));
+        List<CompletableFuture<Void>> futures = scores.stream()
+                .map(score -> CompletableFuture.runAsync(() -> {
+                    try {
+                        reweightSingleScore(score, complexity);
+                    } catch (Exception e) {
+                        log.error("XP reweight failed for score {}: {}", score.getId(), e.getMessage());
+                    }
+                }, backfillExecutor))
+                .toList();
 
-        int updated = 0;
-        for (List<Score> userScores : byUser.values()) {
-            userScores.sort(
-                    Comparator.comparing(Score::getTimeSet, Comparator.nullsFirst(Comparator.naturalOrder())));
-            BigDecimal prevCurveBonus = BigDecimal.ZERO;
+        futures.forEach(CompletableFuture::join);
+        return scores.size();
+    }
 
-            for (Score score : userScores) {
-                BigDecimal xpGained;
-                if (!score.isActive() && score.getSupersedes() == null) {
-                    xpGained = xpCalculationService.calculateXpForWorseScore();
-                } else {
-                    BigDecimal accuracy = computeAccuracy(score);
-                    BigDecimal curveBonus = xpCalculationService.computeCurveBonus(accuracy, complexity);
-                    BigDecimal delta = curveBonus.subtract(prevCurveBonus).max(BigDecimal.ZERO);
-                    xpGained = BigDecimal.valueOf(xpCalculationService.getBaseXpPerScore()).add(delta);
-                    prevCurveBonus = curveBonus.max(prevCurveBonus);
-                }
-                score.setXpGained(xpGained);
-                updated++;
-            }
-        }
+    @Transactional
+    public void reweightSingleScore(Score score, BigDecimal complexity) {
+        Score managed = scoreRepository.findById(score.getId()).orElse(null);
+        if (managed == null || !managed.isActive())
+            return;
 
-        scoreRepository.saveAll(scores);
-        return updated;
+        BigDecimal accuracy = computeAccuracy(managed);
+        BigDecimal xpGained = xpCalculationService.calculateXpForNewMap(accuracy, complexity);
+        managed.setXpGained(xpGained);
+        scoreRepository.save(managed);
     }
 
     private void recalculateTotalXpForAllUsers() {
         List<User> users = userRepository.findByActiveTrue();
-        for (User user : users) {
-            BigDecimal scoreXp = scoreRepository.sumXpGainedByUserId(user.getId());
-            BigDecimal milestoneXp = userMilestoneLinkRepository.sumCompletedMilestoneXpByUserId(user.getId());
-            BigDecimal setBonusXp = userMilestoneSetBonusRepository.sumSetBonusXpByUserId(user.getId());
-            user.setTotalXp(scoreXp.add(milestoneXp).add(setBonusXp));
-        }
-        userRepository.saveAll(users);
+
+        List<CompletableFuture<Void>> futures = users.stream()
+                .map(user -> CompletableFuture.runAsync(() -> {
+                    try {
+                        recalculateSingleUserXp(user.getId());
+                    } catch (Exception e) {
+                        log.error("XP recalc failed for user {}: {}", user.getId(), e.getMessage());
+                    }
+                }, backfillExecutor))
+                .toList();
+
+        futures.forEach(CompletableFuture::join);
+    }
+
+    @Transactional
+    public void recalculateSingleUserXp(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || !user.isActive())
+            return;
+
+        BigDecimal scoreXp = scoreRepository.sumXpGainedByUserId(userId);
+        BigDecimal milestoneXp = userMilestoneLinkRepository.sumCompletedMilestoneXpByUserId(userId);
+        BigDecimal setBonusXp = userMilestoneSetBonusRepository.sumSetBonusXpByUserId(userId);
+        user.setTotalXp(scoreXp.add(milestoneXp).add(setBonusXp));
+        userRepository.save(user);
     }
 
     private BigDecimal computeAccuracy(Score score) {

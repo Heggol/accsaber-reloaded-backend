@@ -233,6 +233,18 @@ class XPCalculationServiceTest {
         }
 
         @Test
+        void complexityBelowFloor_clampedToMinimum() {
+            when(curveRepository.findById(XP_CURVE_ID)).thenReturn(Optional.of(xpCurve));
+            when(apCalculationService.interpolate(xpCurve, new BigDecimal("0.95")))
+                    .thenReturn(new BigDecimal("0.5"));
+
+            BigDecimal bonus = service.computeCurveBonus(new BigDecimal("0.95"), new BigDecimal("0.2"));
+
+            // Clamped to 3: 0.5 * 1000 * (3/10) = 150
+            assertThat(bonus.doubleValue()).isCloseTo(150.0, within(0.001));
+        }
+
+        @Test
         void complexityAboveReference_scalesUp() {
             when(curveRepository.findById(XP_CURVE_ID)).thenReturn(Optional.of(xpCurve));
             when(apCalculationService.interpolate(xpCurve, new BigDecimal("0.95")))

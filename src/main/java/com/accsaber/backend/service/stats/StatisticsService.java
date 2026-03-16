@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -108,7 +110,7 @@ public class StatisticsService {
 
     public List<UserCategoryStatisticsResponse> findHistoric(Long userId, String categoryCode, int amount,
             String unit) {
-        Instant since = Instant.now().minus(amount, parseUnit(unit));
+        Instant since = ZonedDateTime.now(ZoneOffset.UTC).minus(amount, parseUnit(unit)).toInstant();
         return statisticsRepository
                 .findByUser_IdAndCategory_CodeAndCreatedAtAfterOrderByCreatedAtAsc(userId, categoryCode, since)
                 .stream()

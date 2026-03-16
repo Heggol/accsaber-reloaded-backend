@@ -29,11 +29,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Transactional
     @Query(value = """
             UPDATE users u SET total_xp =
-                COALESCE((SELECT SUM(s.xp_gained) FROM scores s WHERE s.user_id = u.id), 0)
-                + COALESCE((SELECT SUM(m.xp) FROM user_milestone_links uml JOIN milestones m ON uml.milestone_id = m.id WHERE uml.user_id = u.id AND uml.completed = true), 0)
-                + COALESCE((SELECT SUM(ms.set_bonus_xp) FROM user_milestone_set_bonuses umsb JOIN milestone_sets ms ON umsb.milestone_set_id = ms.id WHERE umsb.user_id = u.id), 0),
+                COALESCE(sx.score_xp, 0) + COALESCE(mx.milestone_xp, 0) + COALESCE(bx.bonus_xp, 0),
             updated_at = NOW()
-            WHERE u.active = true
+            FROM (
+                SELECT user_id, SUM(xp_gained) AS score_xp FROM scores GROUP BY user_id
+            ) sx
+            FULL OUTER JOIN (
+                SELECT uml.user_id, SUM(m.xp) AS milestone_xp
+                FROM user_milestone_links uml JOIN milestones m ON uml.milestone_id = m.id
+                WHERE uml.completed = true
+                GROUP BY uml.user_id
+            ) mx ON mx.user_id = sx.user_id
+            FULL OUTER JOIN (
+                SELECT umsb.user_id, SUM(ms.set_bonus_xp) AS bonus_xp
+                FROM user_milestone_set_bonuses umsb JOIN milestone_sets ms ON umsb.milestone_set_id = ms.id
+                GROUP BY umsb.user_id
+            ) bx ON bx.user_id = COALESCE(sx.user_id, mx.user_id)
+            WHERE u.id = COALESCE(sx.user_id, mx.user_id, bx.user_id) AND u.active = true
             """, nativeQuery = true)
     void recalculateTotalXpForAllActiveUsers();
 }

@@ -68,6 +68,17 @@ public class UserController {
         return ResponseEntity.ok(statisticsService.findByUserAndCategoryCode(steamId, category));
     }
 
+    @Operation(summary = "Get historic user category statistics", description = "Returns all versioned statistics for a player over a time range, sorted by time ascending. "
+            + "Units: h (hours), d (days), w (weeks), mo (months)")
+    @GetMapping("/{steamId}/statistics/historic")
+    public ResponseEntity<List<UserCategoryStatisticsResponse>> getUserStatisticsHistoric(
+            @PathVariable Long steamId,
+            @RequestParam(defaultValue = "overall") String category,
+            @RequestParam(defaultValue = "7") int amount,
+            @RequestParam(defaultValue = "d") String unit) {
+        return ResponseEntity.ok(statisticsService.findHistoric(steamId, category, amount, unit));
+    }
+
     @Operation(summary = "Get user scores", description = "Paginated list of a player's active scores, optionally filtered by category and/or song name")
     @GetMapping("/{steamId}/scores")
     public ResponseEntity<Page<ScoreResponse>> getUserScores(

@@ -3,6 +3,8 @@ package com.accsaber.backend.service.stats;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -96,6 +98,26 @@ public class StatisticsService {
                 .findByUser_IdAndCategory_CodeAndActiveTrue(userId, categoryCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Statistics", userId + "/" + categoryCode));
         return toResponse(stats);
+    }
+
+    public List<UserCategoryStatisticsResponse> findHistoric(Long userId, String categoryCode, int amount,
+            String unit) {
+        Instant since = Instant.now().minus(amount, parseUnit(unit));
+        return statisticsRepository
+                .findByUser_IdAndCategory_CodeAndCreatedAtAfterOrderByCreatedAtAsc(userId, categoryCode, since)
+                .stream()
+                .map(StatisticsService::toResponse)
+                .toList();
+    }
+
+    private ChronoUnit parseUnit(String unit) {
+        return switch (unit.toLowerCase()) {
+            case "h" -> ChronoUnit.HOURS;
+            case "d" -> ChronoUnit.DAYS;
+            case "w" -> ChronoUnit.WEEKS;
+            case "mo" -> ChronoUnit.MONTHS;
+            default -> throw new IllegalArgumentException("Invalid time unit: " + unit + ". Use h, d, w, or mo");
+        };
     }
 
     private void recalculateWeightedAps(List<Score> scores, Category category) {

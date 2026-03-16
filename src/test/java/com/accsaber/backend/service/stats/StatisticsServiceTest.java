@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -320,11 +321,50 @@ class StatisticsServiceTest {
 
                 @Test
                 void throwsWhenNotFound() {
-                        when(statisticsRepository.findByUser_IdAndCategory_CodeAndActiveTrue(user.getId(), "nonexistent"))
+                        when(statisticsRepository.findByUser_IdAndCategory_CodeAndActiveTrue(user.getId(),
+                                        "nonexistent"))
                                         .thenReturn(Optional.empty());
 
                         org.junit.jupiter.api.Assertions.assertThrows(ResourceNotFoundException.class,
                                         () -> statisticsService.findByUserAndCategoryCode(user.getId(), "nonexistent"));
+                }
+        }
+
+        @Nested
+        class FindHistoric {
+
+                @Test
+                void returnsVersionsSortedByCreatedAt() {
+                        UserCategoryStatistics s1 = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("300.000000")).scoreXp(new BigDecimal("100.000000"))
+                                        .rankedPlays(3).active(false).build();
+                        UserCategoryStatistics s2 = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("500.000000")).scoreXp(new BigDecimal("200.000000"))
+                                        .rankedPlays(5).active(true).build();
+
+                        when(statisticsRepository
+                                        .findByUser_IdAndCategory_CodeAndCreatedAtAfterOrderByCreatedAtAsc(
+                                                        org.mockito.ArgumentMatchers.eq(user.getId()),
+                                                        org.mockito.ArgumentMatchers.eq("true_acc"),
+                                                        any(Instant.class)))
+                                        .thenReturn(List.of(s1, s2));
+
+                        List<UserCategoryStatisticsResponse> result = statisticsService.findHistoric(user.getId(),
+                                        "true_acc", 7, "d");
+
+                        assertThat(result).hasSize(2);
+                        assertThat(result.get(0).getAp()).isEqualByComparingTo(new BigDecimal("300.000000"));
+                        assertThat(result.get(1).getAp()).isEqualByComparingTo(new BigDecimal("500.000000"));
+                        assertThat(result.get(0).getScoreXp()).isEqualByComparingTo(new BigDecimal("100.000000"));
+                        assertThat(result.get(1).getScoreXp()).isEqualByComparingTo(new BigDecimal("200.000000"));
+                }
+
+                @Test
+                void invalidUnit_throws() {
+                        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                                        () -> statisticsService.findHistoric(user.getId(), "true_acc", 7, "x"));
                 }
         }
 }

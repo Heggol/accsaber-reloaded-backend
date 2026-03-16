@@ -81,7 +81,7 @@ public class XPReweightService {
                     try {
                         reweightSingleScore(score, complexity);
                     } catch (Exception e) {
-                        log.error("XP reweight failed for score {}: {}", score.getId(), e.getMessage());
+                        log.error("XP reweight failed for score {}", score.getId(), e);
                     }
                 }, backfillExecutor))
                 .toList();
@@ -110,7 +110,7 @@ public class XPReweightService {
                     try {
                         recalculateSingleUserXp(user.getId());
                     } catch (Exception e) {
-                        log.error("XP recalc failed for user {}: {}", user.getId(), e.getMessage());
+                        log.error("XP recalc failed for user {}", user.getId(), e);
                     }
                 }, backfillExecutor))
                 .toList();

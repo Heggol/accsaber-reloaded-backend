@@ -111,7 +111,7 @@ public class DuplicateUserService {
                                 LEFT JOIN user_score_counts uc2 ON uc2.user_id = u2.id
                                 LEFT JOIN bl_counts bc1 ON bc1.user_id = u1.id
                                 LEFT JOIN bl_counts bc2 ON bc2.user_id = u2.id
-                                AND NOT EXISTS (
+                                WHERE NOT EXISTS (
                                     SELECT 1 FROM users_duplicate_links udl
                                     WHERE udl.secondary_user_id = u1.id OR udl.secondary_user_id = u2.id
                                 )

@@ -52,6 +52,29 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
       @Param("categoryCode") String categoryCode,
       @Param("since") Instant since);
 
+  @Query(value = """
+      SELECT ucs.* FROM user_category_statistics ucs
+      JOIN categories c ON ucs.category_id = c.id
+      WHERE ucs.user_id = :userId AND c.code = :categoryCode
+        AND ucs.created_at <= NOW() - INTERVAL '24 hours'
+      ORDER BY ucs.created_at DESC
+      LIMIT 1
+      """, nativeQuery = true)
+  Optional<UserCategoryStatistics> findLatestBeforeLastDay(
+      @Param("userId") Long userId,
+      @Param("categoryCode") String categoryCode);
+
+  @Query(value = """
+      SELECT ucs.* FROM user_category_statistics ucs
+      JOIN categories c ON ucs.category_id = c.id
+      WHERE ucs.user_id = :userId AND c.code = :categoryCode
+      ORDER BY ucs.created_at DESC
+      LIMIT 1
+      """, nativeQuery = true)
+  Optional<UserCategoryStatistics> findMostRecent(
+      @Param("userId") Long userId,
+      @Param("categoryCode") String categoryCode);
+
   List<UserCategoryStatistics> findByUser_IdAndActiveTrue(Long userId);
 
   @Query("""

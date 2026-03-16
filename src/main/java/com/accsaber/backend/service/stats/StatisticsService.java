@@ -8,12 +8,14 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.accsaber.backend.exception.ResourceNotFoundException;
+import com.accsaber.backend.model.dto.response.player.StatsDiffResponse;
 import com.accsaber.backend.model.dto.response.player.UserCategoryStatisticsResponse;
 import com.accsaber.backend.model.entity.Category;
 import com.accsaber.backend.model.entity.score.Score;
@@ -60,7 +62,7 @@ public class StatisticsService {
         BigDecimal totalAp = sumWeightedAps(scores);
         BigDecimal scoreXp = sumScoreXp(scores);
         BigDecimal averageAcc = computeAverageAcc(scores);
-        BigDecimal averageAp = computeAverageAp(scores, totalAp);
+        BigDecimal averageAp = computeAverageAp(scores);
         Score topPlay = scores.isEmpty() ? null : scores.get(0);
 
         UserCategoryStatistics current = statisticsRepository
@@ -118,6 +120,48 @@ public class StatisticsService {
                 .toList();
     }
 
+    public Optional<StatsDiffResponse> computeStatsDiff(Long userId, String categoryCode) {
+        Optional<UserCategoryStatistics> baseOpt = statisticsRepository
+                .findLatestBeforeLastDay(userId, categoryCode);
+        if (baseOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<UserCategoryStatistics> latestOpt = statisticsRepository
+                .findMostRecent(userId, categoryCode);
+        if (latestOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        UserCategoryStatistics base = baseOpt.get();
+        UserCategoryStatistics latest = latestOpt.get();
+
+        return Optional.of(StatsDiffResponse.builder()
+                .categoryId(latest.getCategory().getId())
+                .apDiff(latest.getAp().subtract(base.getAp()))
+                .scoreXpDiff(latest.getScoreXp().subtract(base.getScoreXp()))
+                .averageAccDiff(diffNullable(latest.getAverageAcc(), base.getAverageAcc()))
+                .averageApDiff(diffNullable(latest.getAverageAp(), base.getAverageAp()))
+                .rankingDiff(diffNullableInt(latest.getRanking(), base.getRanking()))
+                .countryRankingDiff(diffNullableInt(latest.getCountryRanking(), base.getCountryRanking()))
+                .rankedPlaysDiff(latest.getRankedPlays() - base.getRankedPlays())
+                .from(base.getCreatedAt())
+                .to(latest.getCreatedAt())
+                .build());
+    }
+
+    private static BigDecimal diffNullable(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null)
+            return null;
+        return a.subtract(b);
+    }
+
+    private static Integer diffNullableInt(Integer a, Integer b) {
+        if (a == null || b == null)
+            return null;
+        return a - b;
+    }
+
     private ChronoUnit parseUnit(String unit) {
         return switch (unit.toLowerCase()) {
             case "h" -> ChronoUnit.HOURS;
@@ -162,10 +206,13 @@ public class StatisticsService {
         return sum.divide(BigDecimal.valueOf(scores.size()), SCALE, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal computeAverageAp(List<Score> scores, BigDecimal totalAp) {
+    private BigDecimal computeAverageAp(List<Score> scores) {
         if (scores.isEmpty())
             return BigDecimal.ZERO;
-        return totalAp.divide(BigDecimal.valueOf(scores.size()), SCALE, RoundingMode.HALF_UP);
+        BigDecimal sum = scores.stream()
+                .map(Score::getAp)
+                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b, MC));
+        return sum.divide(BigDecimal.valueOf(scores.size()), SCALE, RoundingMode.HALF_UP);
     }
 
     static UserCategoryStatisticsResponse toResponse(UserCategoryStatistics s) {

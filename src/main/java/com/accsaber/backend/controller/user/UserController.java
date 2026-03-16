@@ -1,6 +1,7 @@
 package com.accsaber.backend.controller.user;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import com.accsaber.backend.model.dto.response.campaign.CampaignProgressResponse
 import com.accsaber.backend.model.dto.response.milestone.LevelResponse;
 import com.accsaber.backend.model.dto.response.milestone.UserMilestoneProgressResponse;
 import com.accsaber.backend.model.dto.response.player.NameHistoryResponse;
+import com.accsaber.backend.model.dto.response.player.StatsDiffResponse;
 import com.accsaber.backend.model.dto.response.player.UserCategoryStatisticsResponse;
 import com.accsaber.backend.model.dto.response.player.UserResponse;
 import com.accsaber.backend.model.dto.response.score.ScoreResponse;
@@ -83,6 +85,16 @@ public class UserController {
             @RequestParam(defaultValue = "7") int amount,
             @RequestParam(defaultValue = "d") String unit) {
         return ResponseEntity.ok(statisticsService.findHistoric(steamId, category, amount, unit));
+    }
+
+    @Operation(summary = "Get user stats diff", description = "Returns the difference between the most recent statistics and the last statistics before 24h ago. "
+            + "Returns 204 No Content if no baseline exists (new player or no activity before 24h ago)")
+    @GetMapping("/{steamId}/stats-diff")
+    public ResponseEntity<StatsDiffResponse> getStatsDiff(
+            @PathVariable Long steamId,
+            @RequestParam(defaultValue = "overall") String category) {
+        Optional<StatsDiffResponse> diff = statisticsService.computeStatsDiff(steamId, category);
+        return diff.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @Operation(summary = "Get historic user scores", description = "Returns all versioned scores for a player on a specific map difficulty over a time range, sorted by time ascending. "

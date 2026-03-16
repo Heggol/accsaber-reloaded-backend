@@ -1,6 +1,5 @@
 package com.accsaber.backend.model.entity.milestone;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -27,9 +26,6 @@ public class LevelThreshold {
 
     @Id
     private Integer level;
-
-    @Column(name = "xp_required", nullable = false, precision = 20, scale = 6)
-    private BigDecimal xpRequired;
 
     private String title;
 

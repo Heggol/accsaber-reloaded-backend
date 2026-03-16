@@ -392,7 +392,6 @@ public class MilestoneQueryBuilderService {
         // --- level_thresholds ---
         Map<String, ColumnDef> lt = new LinkedHashMap<>();
         lt.put("level", ColumnDef.int_("lt.level"));
-        lt.put("xp_required", ColumnDef.bd("lt.xpRequired"));
         lt.put("title", ColumnDef.str("lt.title"));
         COLUMN_ALLOWLIST.put("level_thresholds", lt);
     }

@@ -143,15 +143,15 @@ public class ScoreIngestionService {
 
             String playKey = resolvedSteamId + "_" + difficulty.getId();
 
-            if (scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId())
-                    .isPresent()) {
-                return;
-            }
-
             int delaySeconds = properties.getSsWaitForBlSeconds();
             ScheduledFuture<?> future = ingestionScheduler.schedule(() -> {
                 try {
                     pendingSsScores.remove(playKey);
+                    if (scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId())
+                            .isPresent()) {
+                        log.debug("Skipping delayed SS score for {} - active score already exists", playKey);
+                        return;
+                    }
                     playerImportService.ensurePlayerExists(resolvedSteamId);
                     SubmitScoreRequest request = PlatformScoreMapper.fromScoreSaber(
                             ssScore, difficulty.getId(), resolvedSteamId, modifierCacheService.getModifierCodeToId());

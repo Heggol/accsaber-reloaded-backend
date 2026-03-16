@@ -12,5 +12,7 @@ public class DuplicateCandidateResponse {
     String secondaryUserId;
     String secondaryUserName;
     String country;
-    int sharedDifficulties;
+    int identicalScores;
+    int primaryTotalScores;
+    int secondaryTotalScores;
 }

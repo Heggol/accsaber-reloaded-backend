@@ -22,7 +22,7 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
         @Query("""
                         SELECT s FROM UserCategoryStatistics s
                         JOIN FETCH s.user u
-                        WHERE s.category.id = :categoryId AND s.active = true
+                        WHERE s.category.id = :categoryId AND s.active = true AND u.active = true
                         ORDER BY s.ap DESC
                         """)
         List<UserCategoryStatistics> findActiveByCategoryOrderByApDesc(@Param("categoryId") UUID categoryId);
@@ -30,11 +30,12 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
         @Query(value = """
                         SELECT s FROM UserCategoryStatistics s
                         JOIN FETCH s.user u
-                        WHERE s.category.id = :categoryId AND s.active = true
+                        WHERE s.category.id = :categoryId AND s.active = true AND u.active = true
                         ORDER BY s.ranking ASC
                         """, countQuery = """
                         SELECT COUNT(s) FROM UserCategoryStatistics s
-                        WHERE s.category.id = :categoryId AND s.active = true
+                        JOIN s.user u
+                        WHERE s.category.id = :categoryId AND s.active = true AND u.active = true
                         """)
         Page<UserCategoryStatistics> findActiveByCategoryPaged(
                         @Param("categoryId") UUID categoryId, Pageable pageable);
@@ -42,13 +43,13 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
         @Query(value = """
                         SELECT s FROM UserCategoryStatistics s
                         JOIN FETCH s.user u
-                        WHERE s.category.id = :categoryId AND s.active = true
+                        WHERE s.category.id = :categoryId AND s.active = true AND u.active = true
                           AND LOWER(u.country) = LOWER(:country)
                         ORDER BY s.countryRanking ASC
                         """, countQuery = """
                         SELECT COUNT(s) FROM UserCategoryStatistics s
                         JOIN s.user u
-                        WHERE s.category.id = :categoryId AND s.active = true
+                        WHERE s.category.id = :categoryId AND s.active = true AND u.active = true
                           AND LOWER(u.country) = LOWER(:country)
                         """)
         Page<UserCategoryStatistics> findActiveByCategoryAndCountryPaged(
@@ -66,9 +67,10 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
         @Modifying
         @Query(value = """
                         WITH ranked AS (
-                            SELECT id, ROW_NUMBER() OVER (ORDER BY ap DESC) AS new_rank
-                            FROM user_category_statistics
-                            WHERE category_id = :categoryId AND active = true
+                            SELECT ucs.id, ROW_NUMBER() OVER (ORDER BY ucs.ap DESC) AS new_rank
+                            FROM user_category_statistics ucs
+                            JOIN users u ON ucs.user_id = u.id
+                            WHERE ucs.category_id = :categoryId AND ucs.active = true AND u.active = true
                         )
                         UPDATE user_category_statistics ucs
                         SET ranking = r.new_rank, updated_at = NOW()
@@ -84,7 +86,7 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
                                    ROW_NUMBER() OVER (PARTITION BY u.country ORDER BY ucs.ap DESC) AS new_country_rank
                             FROM user_category_statistics ucs
                             JOIN users u ON ucs.user_id = u.id
-                            WHERE ucs.category_id = :categoryId AND ucs.active = true AND u.country IS NOT NULL
+                            WHERE ucs.category_id = :categoryId AND ucs.active = true AND u.active = true AND u.country IS NOT NULL
                         )
                         UPDATE user_category_statistics ucs
                         SET country_ranking = r.new_country_rank, updated_at = NOW()

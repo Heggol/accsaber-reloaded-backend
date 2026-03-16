@@ -74,41 +74,48 @@ public class DuplicateUserService {
         List<Object[]> rows = entityManager
                 .createNativeQuery(
                         """
-                                WITH user_diffs AS (
-                                    SELECT DISTINCT user_id, map_difficulty_id
+                                WITH identical_scores AS (
+                                    SELECT s1.user_id AS u1_id, s2.user_id AS u2_id,
+                                        COUNT(*) AS identical_count
+                                    FROM scores s1
+                                    JOIN scores s2 ON s1.map_difficulty_id = s2.map_difficulty_id
+                                                AND s1.score = s2.score
+                                                AND s1.user_id < s2.user_id
+                                                AND s2.active = true
+                                    WHERE s1.active = true
+                                    GROUP BY s1.user_id, s2.user_id
+                                    HAVING COUNT(*) >= 8
+                                ),
+                                user_score_counts AS (
+                                    SELECT user_id, COUNT(*) AS total_scores
                                     FROM scores
                                     WHERE active = true
-                                ),
-                                shared AS (
-                                    SELECT ud1.user_id AS u1_id, ud2.user_id AS u2_id,
-                                           COUNT(*) AS shared_difficulties
-                                    FROM user_diffs ud1
-                                    JOIN user_diffs ud2 ON ud1.map_difficulty_id = ud2.map_difficulty_id
-                                                       AND ud1.user_id < ud2.user_id
-                                    GROUP BY ud1.user_id, ud2.user_id
-                                    HAVING COUNT(*) >= 15
+                                    GROUP BY user_id
                                 ),
                                 bl_counts AS (
                                     SELECT user_id, COUNT(*) AS bl_scores
                                     FROM scores
-                                    WHERE bl_score_id IS NOT NULL
+                                    WHERE bl_score_id IS NOT NULL AND active = true
                                     GROUP BY user_id
                                 )
                                 SELECT u1.id, u1.name, u2.id, u2.name, u1.country,
-                                       sh.shared_difficulties,
-                                       COALESCE(bc1.bl_scores, 0) AS u1_bl_scores,
-                                       COALESCE(bc2.bl_scores, 0) AS u2_bl_scores
-                                FROM shared sh
-                                JOIN users u1 ON u1.id = sh.u1_id AND u1.active = true
-                                JOIN users u2 ON u2.id = sh.u2_id AND u2.active = true
+                                    iq.identical_count,
+                                    COALESCE(uc1.total_scores, 0) AS u1_total_scores,
+                                    COALESCE(uc2.total_scores, 0) AS u2_total_scores,
+                                    COALESCE(bc1.bl_scores, 0) AS u1_bl_scores,
+                                    COALESCE(bc2.bl_scores, 0) AS u2_bl_scores
+                                FROM identical_scores iq
+                                JOIN users u1 ON u1.id = iq.u1_id AND u1.active = true
+                                JOIN users u2 ON u2.id = iq.u2_id AND u2.active = true
+                                LEFT JOIN user_score_counts uc1 ON uc1.user_id = u1.id
+                                LEFT JOIN user_score_counts uc2 ON uc2.user_id = u2.id
                                 LEFT JOIN bl_counts bc1 ON bc1.user_id = u1.id
                                 LEFT JOIN bl_counts bc2 ON bc2.user_id = u2.id
-                                WHERE u1.country = u2.country
                                 AND NOT EXISTS (
                                     SELECT 1 FROM users_duplicate_links udl
                                     WHERE udl.secondary_user_id = u1.id OR udl.secondary_user_id = u2.id
                                 )
-                                ORDER BY sh.shared_difficulties DESC
+                                ORDER BY iq.identical_count DESC
                                 """)
                 .getResultList();
 
@@ -117,8 +124,10 @@ public class DuplicateUserService {
             String u1Name = (String) row[1];
             Long u2Id = ((Number) row[2]).longValue();
             String u2Name = (String) row[3];
-            long u1BlScores = ((Number) row[6]).longValue();
-            long u2BlScores = ((Number) row[7]).longValue();
+            int u1TotalScores = ((Number) row[6]).intValue();
+            int u2TotalScores = ((Number) row[7]).intValue();
+            long u1BlScores = ((Number) row[8]).longValue();
+            long u2BlScores = ((Number) row[9]).longValue();
 
             boolean u1IsPrimary = u1BlScores >= u2BlScores;
             return DuplicateCandidateResponse.builder()
@@ -127,30 +136,11 @@ public class DuplicateUserService {
                     .secondaryUserId(String.valueOf(u1IsPrimary ? u2Id : u1Id))
                     .secondaryUserName(u1IsPrimary ? u2Name : u1Name)
                     .country((String) row[4])
-                    .sharedDifficulties(((Number) row[5]).intValue())
+                    .identicalScores(((Number) row[5]).intValue())
+                    .primaryTotalScores(u1IsPrimary ? u1TotalScores : u2TotalScores)
+                    .secondaryTotalScores(u1IsPrimary ? u2TotalScores : u1TotalScores)
                     .build();
         }).toList();
-    }
-
-    @Async("taskExecutor")
-    public void mergeAllDetectedDuplicates(UUID staffUserId) {
-        List<DuplicateCandidateResponse> candidates = detectDuplicates();
-        log.info("Auto-merging {} detected duplicate pairs", candidates.size());
-
-        int merged = 0;
-        for (DuplicateCandidateResponse candidate : candidates) {
-            try {
-                Long primaryId = Long.parseLong(candidate.getPrimaryUserId());
-                Long secondaryId = Long.parseLong(candidate.getSecondaryUserId());
-                merge(primaryId, secondaryId, staffUserId,
-                        "Auto-merge: " + candidate.getSharedDifficulties() + " shared difficulties");
-                merged++;
-            } catch (Exception e) {
-                log.error("Failed to auto-merge {} -> {}: {}",
-                        candidate.getSecondaryUserId(), candidate.getPrimaryUserId(), e.getMessage());
-            }
-        }
-        log.info("Auto-merge complete: {}/{} pairs merged successfully", merged, candidates.size());
     }
 
     @Transactional

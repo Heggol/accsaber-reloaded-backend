@@ -34,18 +34,10 @@ public class AdminUserDuplicateController {
 
     private final DuplicateUserService duplicateUserService;
 
-    @Operation(summary = "Detect potential duplicate users", description = "Finds users with same country and 15+ shared scored map difficulties. Primary is the user with more BeatLeader scores.")
+    @Operation(summary = "Detect potential duplicate users", description = "Finds user pairs with 8+ identical scores (same map difficulty AND same score value). Primary is the user with more BeatLeader scores.")
     @GetMapping
     public ResponseEntity<List<DuplicateCandidateResponse>> detectDuplicates() {
         return ResponseEntity.ok(duplicateUserService.detectDuplicates());
-    }
-
-    @Operation(summary = "Auto-merge all detected duplicates", description = "Detects all duplicate candidates and merges them automatically. Runs async — returns 202 immediately.")
-    @PostMapping("/merge-all")
-    public ResponseEntity<Void> mergeAllDuplicates(
-            @AuthenticationPrincipal StaffUserDetails userDetails) {
-        duplicateUserService.mergeAllDetectedDuplicates(userDetails.getStaffUser().getId());
-        return ResponseEntity.accepted().build();
     }
 
     @Operation(summary = "List all duplicate links")

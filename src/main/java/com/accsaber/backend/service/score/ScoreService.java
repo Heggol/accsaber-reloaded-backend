@@ -2,6 +2,10 @@ package com.accsaber.backend.service.score;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -387,6 +391,30 @@ public class ScoreService {
                 return scoreRepository.findByMapDifficulty_IdAndActiveTrue(mapDifficultyId, effective)
                                 .map(s -> toResponse(s, computeAccuracy(s.getScore(), difficulty.getMaxScore()),
                                                 loadModifierIds(s.getId())));
+        }
+
+        public List<ScoreResponse> findHistoric(Long userId, UUID mapDifficultyId, int amount, String unit) {
+                Instant since = ZonedDateTime.now(ZoneOffset.UTC).minus(amount, parseUnit(unit)).toInstant();
+                List<Score> scores = scoreRepository
+                                .findByUser_IdAndMapDifficulty_IdAndCreatedAtAfterOrderByCreatedAtAsc(
+                                                userId, mapDifficultyId, since);
+
+                return scores.stream()
+                                .map(s -> toResponse(s,
+                                                computeAccuracy(s.getScore(), s.getMapDifficulty().getMaxScore()),
+                                                loadModifierIds(s.getId())))
+                                .toList();
+        }
+
+        private ChronoUnit parseUnit(String unit) {
+                return switch (unit.toLowerCase()) {
+                        case "h" -> ChronoUnit.HOURS;
+                        case "d" -> ChronoUnit.DAYS;
+                        case "w" -> ChronoUnit.WEEKS;
+                        case "mo" -> ChronoUnit.MONTHS;
+                        default -> throw new IllegalArgumentException(
+                                        "Invalid time unit: " + unit + ". Use h, d, w, or mo");
+                };
         }
 
         private void updateUserXp(User user, BigDecimal xpGained) {

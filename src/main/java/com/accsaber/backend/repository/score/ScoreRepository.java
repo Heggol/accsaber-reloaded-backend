@@ -152,6 +152,9 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
             """, nativeQuery = true)
     List<UUID> findDistinctActiveDifficultyIds();
 
+    List<Score> findByUser_IdAndMapDifficulty_IdAndCreatedAtAfterOrderByCreatedAtAsc(
+            Long userId, UUID mapDifficultyId, Instant since);
+
     @Query(value = """
             SELECT COUNT(*) FROM scores
             WHERE map_difficulty_id = :difficultyId AND active = true AND ap > :ap

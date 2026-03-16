@@ -85,6 +85,17 @@ public class UserController {
         return ResponseEntity.ok(statisticsService.findHistoric(steamId, category, amount, unit));
     }
 
+    @Operation(summary = "Get historic user scores", description = "Returns all versioned scores for a player on a specific map difficulty over a time range, sorted by time ascending. "
+            + "Units: h (hours), d (days), w (weeks), mo (months)")
+    @GetMapping("/{steamId}/scores/historic")
+    public ResponseEntity<List<ScoreResponse>> getUserScoresHistoric(
+            @PathVariable Long steamId,
+            @RequestParam UUID mapDifficultyId,
+            @RequestParam(defaultValue = "7") int amount,
+            @RequestParam(defaultValue = "d") String unit) {
+        return ResponseEntity.ok(scoreService.findHistoric(steamId, mapDifficultyId, amount, unit));
+    }
+
     @Operation(summary = "Get user scores", description = "Paginated list of a player's active scores, optionally filtered by category and/or song name")
     @GetMapping("/{steamId}/scores")
     public ResponseEntity<Page<ScoreResponse>> getUserScores(

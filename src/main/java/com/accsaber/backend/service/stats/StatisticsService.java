@@ -81,6 +81,8 @@ public class StatisticsService {
                 .scoreXp(scoreXp)
                 .averageAcc(averageAcc)
                 .averageAp(averageAp)
+                .ranking(current != null ? current.getRanking() : null)
+                .countryRanking(current != null ? current.getCountryRanking() : null)
                 .rankedPlays(scores.size())
                 .topPlay(topPlay)
                 .supersedes(current)

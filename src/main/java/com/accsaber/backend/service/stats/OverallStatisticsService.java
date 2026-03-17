@@ -77,6 +77,8 @@ public class OverallStatisticsService {
                                 .scoreXp(totalScoreXp)
                                 .averageAcc(avgAcc)
                                 .averageAp(avgAp)
+                                .ranking(current != null ? current.getRanking() : null)
+                                .countryRanking(current != null ? current.getCountryRanking() : null)
                                 .rankedPlays(totalPlays)
                                 .topPlay(topPlay)
                                 .supersedes(current)

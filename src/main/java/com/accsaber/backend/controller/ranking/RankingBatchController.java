@@ -72,4 +72,11 @@ public class RankingBatchController {
     public ResponseEntity<BatchResponse> release(@PathVariable UUID id) {
         return ResponseEntity.ok(batchService.release(id));
     }
+
+    @Operation(summary = "Reweight a batch", description = "Recalculates AP for all difficulties in a released batch. No score import from BL/SS.")
+    @PostMapping("/{id}/reweight")
+    public ResponseEntity<Void> reweightBatch(@PathVariable UUID id) {
+        batchService.reweightBatch(id);
+        return ResponseEntity.accepted().build();
+    }
 }

@@ -64,7 +64,7 @@ public class ScoreRecalculationService {
     @Qualifier("backfillExecutor")
     private Executor backfillExecutor;
 
-@Async("taskExecutor")
+    @Async("taskExecutor")
     public void recalculateDifficultyAsync(UUID mapDifficultyId) {
         MapDifficulty difficulty = mapDifficultyRepository.findByIdAndActiveTrueWithCategory(mapDifficultyId)
                 .orElse(null);
@@ -91,7 +91,46 @@ public class ScoreRecalculationService {
         log.info("Recalculation complete for difficulty {} ({} users affected)", difficulty.getId(), affected.size());
     }
 
-@Async("taskExecutor")
+    @Async("taskExecutor")
+    public void recalculateBatchAsync(List<MapDifficulty> difficulties) {
+        log.info("Starting batch recalculation for {} difficulties", difficulties.size());
+        apCalculationService.evictAllCurveCaches();
+
+        ConcurrentHashMap<UUID, Set<Long>> affectedByCategory = new ConcurrentHashMap<>();
+
+        List<CompletableFuture<Void>> futures = difficulties.stream()
+                .map(difficulty -> CompletableFuture.runAsync(() -> {
+                    try {
+                        Set<Long> affected = recalculateRawApForDifficulty(difficulty);
+                        if (!affected.isEmpty()) {
+                            affectedByCategory.computeIfAbsent(
+                                    difficulty.getCategory().getId(), k -> ConcurrentHashMap.newKeySet())
+                                    .addAll(affected);
+                            scoreRankingService.reassignRanks(difficulty.getId());
+                            mapDifficultyStatisticsService.recalculate(difficulty, null);
+                        }
+                    } catch (Exception e) {
+                        log.error("Batch recalc failed for difficulty {}: {}", difficulty.getId(), e.getMessage());
+                    }
+                }, backfillExecutor))
+                .toList();
+
+        futures.forEach(CompletableFuture::join);
+
+        for (var entry : affectedByCategory.entrySet()) {
+            batchRecalculateStats(entry.getValue(), entry.getKey());
+            rankingService.updateRankings(entry.getKey());
+        }
+        if (affectedByCategory.values().stream().anyMatch(s -> !s.isEmpty())) {
+            overallStatisticsService.updateOverallRankings();
+        }
+
+        int totalUsers = affectedByCategory.values().stream().mapToInt(Set::size).sum();
+        log.info("Batch recalculation complete for {} difficulties, {} users affected",
+                difficulties.size(), totalUsers);
+    }
+
+    @Async("taskExecutor")
     public void recalculateAllRawApAsync() {
         doRecalculateAllRawAp();
     }
@@ -116,8 +155,8 @@ public class ScoreRecalculationService {
                         Set<Long> affected = recalculateRawApForDifficulty(difficulty);
                         if (!affected.isEmpty()) {
                             affectedByCategory.computeIfAbsent(
-                                    difficulty.getCategory().getId(), k -> ConcurrentHashMap.newKeySet()
-                            ).addAll(affected);
+                                    difficulty.getCategory().getId(), k -> ConcurrentHashMap.newKeySet())
+                                    .addAll(affected);
                             scoreRankingService.reassignRanks(difficulty.getId());
                             mapDifficultyStatisticsService.recalculate(difficulty, null);
                         }
@@ -143,9 +182,11 @@ public class ScoreRecalculationService {
     @Transactional
     public Set<Long> recalculateRawApForDifficulty(MapDifficulty difficulty) {
         List<Score> scores = scoreRepository.findByMapDifficultyIdAndActiveTrueWithCategory(difficulty.getId());
-        if (scores.isEmpty()) return Set.of();
+        if (scores.isEmpty())
+            return Set.of();
 
-        if (difficulty.getMaxScore() == null || difficulty.getMaxScore() == 0) return Set.of();
+        if (difficulty.getMaxScore() == null || difficulty.getMaxScore() == 0)
+            return Set.of();
 
         BigDecimal complexity = mapComplexityService.findActiveComplexity(difficulty.getId()).orElse(null);
         if (complexity == null) {
@@ -171,7 +212,7 @@ public class ScoreRecalculationService {
         return affectedUsers;
     }
 
-@Async("taskExecutor")
+    @Async("taskExecutor")
     public void recalculateAllWeightedApAsync() {
         doRecalculateAllWeightedAp();
     }
@@ -202,7 +243,7 @@ public class ScoreRecalculationService {
         log.info("Weighted AP recalculation complete for all categories");
     }
 
-@Async("taskExecutor")
+    @Async("taskExecutor")
     public void recalculateAllApAsync() {
         log.info("Starting full AP recalculation (raw + weighted)");
         doRecalculateAllRawAp();

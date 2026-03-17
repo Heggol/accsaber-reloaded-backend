@@ -38,6 +38,7 @@ import com.accsaber.backend.repository.map.BatchRepository;
 import com.accsaber.backend.repository.map.MapDifficultyRepository;
 import com.accsaber.backend.repository.staff.StaffUserRepository;
 import com.accsaber.backend.service.score.ScoreImportService;
+import com.accsaber.backend.service.score.ScoreRecalculationService;
 
 @ExtendWith(MockitoExtension.class)
 class BatchServiceTest {
@@ -59,6 +60,9 @@ class BatchServiceTest {
 
         @Mock
         private ScoreImportService scoreImportService;
+
+        @Mock
+        private ScoreRecalculationService scoreRecalculationService;
 
         @InjectMocks
         private BatchService batchService;
@@ -370,6 +374,66 @@ class BatchServiceTest {
 
                         assertThat(batch.getStatus()).isEqualTo(BatchStatus.RELEASED);
                         assertThat(batch.getReleasedAt()).isNotNull();
+                }
+        }
+
+        @Nested
+        class ReweightBatch {
+
+                @Test
+                void triggersRecalculation_forReleasedBatch() {
+                        Batch batch = buildBatch(BatchStatus.RELEASED);
+                        MapDifficulty diff1 = buildDifficulty(batch);
+                        MapDifficulty diff2 = buildDifficulty(batch);
+                        List<MapDifficulty> difficulties = List.of(diff1, diff2);
+
+                        when(batchRepository.findById(batch.getId())).thenReturn(Optional.of(batch));
+                        when(mapDifficultyRepository.findByBatchIdAndActiveTrueWithCategory(batch.getId()))
+                                        .thenReturn(difficulties);
+
+                        batchService.reweightBatch(batch.getId());
+
+                        verify(scoreRecalculationService).recalculateBatchAsync(difficulties);
+                }
+
+                @Test
+                void throwsNotFound_whenBatchDoesNotExist() {
+                        UUID id = UUID.randomUUID();
+                        when(batchRepository.findById(id)).thenReturn(Optional.empty());
+
+                        assertThatThrownBy(() -> batchService.reweightBatch(id))
+                                        .isInstanceOf(ResourceNotFoundException.class);
+                }
+
+                @Test
+                void throwsValidation_whenBatchIsNotReleased() {
+                        Batch batch = buildBatch(BatchStatus.DRAFT);
+                        when(batchRepository.findById(batch.getId())).thenReturn(Optional.of(batch));
+
+                        assertThatThrownBy(() -> batchService.reweightBatch(batch.getId()))
+                                        .isInstanceOf(ValidationException.class)
+                                        .hasMessageContaining("released");
+                }
+
+                @Test
+                void throwsValidation_whenBatchIsReleaseReady() {
+                        Batch batch = buildBatch(BatchStatus.RELEASE_READY);
+                        when(batchRepository.findById(batch.getId())).thenReturn(Optional.of(batch));
+
+                        assertThatThrownBy(() -> batchService.reweightBatch(batch.getId()))
+                                        .isInstanceOf(ValidationException.class);
+                }
+
+                @Test
+                void throwsValidation_whenBatchHasNoDifficulties() {
+                        Batch batch = buildBatch(BatchStatus.RELEASED);
+                        when(batchRepository.findById(batch.getId())).thenReturn(Optional.of(batch));
+                        when(mapDifficultyRepository.findByBatchIdAndActiveTrueWithCategory(batch.getId()))
+                                        .thenReturn(List.of());
+
+                        assertThatThrownBy(() -> batchService.reweightBatch(batch.getId()))
+                                        .isInstanceOf(ValidationException.class)
+                                        .hasMessageContaining("no active difficulties");
                 }
         }
 

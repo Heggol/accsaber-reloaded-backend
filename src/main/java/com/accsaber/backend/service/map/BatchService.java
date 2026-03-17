@@ -28,6 +28,7 @@ import com.accsaber.backend.repository.map.BatchRepository;
 import com.accsaber.backend.repository.map.MapDifficultyRepository;
 import com.accsaber.backend.repository.staff.StaffUserRepository;
 import com.accsaber.backend.service.score.ScoreImportService;
+import com.accsaber.backend.service.score.ScoreRecalculationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,6 +43,7 @@ public class BatchService {
     private final MapDifficultyComplexityService complexityService;
     private final MapDifficultyStatisticsService statisticsService;
     private final ScoreImportService scoreImportService;
+    private final ScoreRecalculationService scoreRecalculationService;
 
     public Page<BatchResponse> findAll(Pageable pageable) {
         Page<Batch> batches = batchRepository.findAll(pageable);
@@ -136,6 +138,22 @@ public class BatchService {
                 difficulties.stream().map(MapDifficulty::getId).toList());
 
         return toResponse(batch, enrich(difficulties));
+    }
+
+    public void reweightBatch(UUID batchId) {
+        Batch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Batch", batchId));
+
+        if (batch.getStatus() != BatchStatus.RELEASED) {
+            throw new ValidationException("Can only reweight a released batch");
+        }
+
+        List<MapDifficulty> difficulties = mapDifficultyRepository.findByBatchIdAndActiveTrueWithCategory(batchId);
+        if (difficulties.isEmpty()) {
+            throw new ValidationException("Batch has no active difficulties to reweight");
+        }
+
+        scoreRecalculationService.recalculateBatchAsync(difficulties);
     }
 
     private Batch findUnreleasedBatch(UUID batchId) {

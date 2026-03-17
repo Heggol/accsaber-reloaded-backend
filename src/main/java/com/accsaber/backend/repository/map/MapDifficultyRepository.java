@@ -1,5 +1,9 @@
 package com.accsaber.backend.repository.map;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -7,10 +11,6 @@ import org.springframework.data.repository.query.Param;
 import com.accsaber.backend.model.entity.map.Difficulty;
 import com.accsaber.backend.model.entity.map.MapDifficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 public interface MapDifficultyRepository extends JpaRepository<MapDifficulty, UUID> {
 
@@ -54,6 +54,15 @@ public interface MapDifficultyRepository extends JpaRepository<MapDifficulty, UU
 
         List<MapDifficulty> findByBatch_IdAndActiveTrue(UUID batchId);
 
+        @Query("""
+                        SELECT d FROM MapDifficulty d
+                        JOIN FETCH d.category c
+                        JOIN FETCH c.scoreCurve
+                        JOIN FETCH c.weightCurve
+                        WHERE d.batch.id = :batchId AND d.active = true
+                        """)
+        List<MapDifficulty> findByBatchIdAndActiveTrueWithCategory(@Param("batchId") UUID batchId);
+
         Optional<MapDifficulty> findByBlLeaderboardId(String blLeaderboardId);
 
         Optional<MapDifficulty> findBySsLeaderboardId(String ssLeaderboardId);
@@ -88,5 +97,6 @@ public interface MapDifficultyRepository extends JpaRepository<MapDifficulty, UU
                         SELECT COUNT(d) FROM MapDifficulty d
                         WHERE d.category.id = :categoryId AND d.status = :status AND d.active = true
                         """)
-        long countByCategoryIdAndStatus(@Param("categoryId") UUID categoryId, @Param("status") MapDifficultyStatus status);
+        long countByCategoryIdAndStatus(@Param("categoryId") UUID categoryId,
+                        @Param("status") MapDifficultyStatus status);
 }

@@ -60,27 +60,19 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
                         SELECT s FROM Score s
                         JOIN FETCH s.user u
                         WHERE s.mapDifficulty.id = :mapDifficultyId AND s.active = true
-                        """, countQuery = """
-                        SELECT COUNT(s) FROM Score s
-                        WHERE s.mapDifficulty.id = :mapDifficultyId AND s.active = true
-                        """)
-        Page<Score> findByMapDifficultyIdAndActiveTrueWithUser(
-                        @Param("mapDifficultyId") UUID mapDifficultyId, Pageable pageable);
-
-        @Query(value = """
-                        SELECT s FROM Score s
-                        JOIN FETCH s.user u
-                        WHERE s.mapDifficulty.id = :mapDifficultyId AND s.active = true
-                        AND u.country = :country
+                        AND (:country IS NULL OR u.country = :country)
+                        AND (:search IS NULL OR LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         """, countQuery = """
                         SELECT COUNT(s) FROM Score s
                         JOIN s.user u
                         WHERE s.mapDifficulty.id = :mapDifficultyId AND s.active = true
-                        AND u.country = :country
+                        AND (:country IS NULL OR u.country = :country)
+                        AND (:search IS NULL OR LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         """)
-        Page<Score> findByMapDifficultyIdAndActiveTrueWithUserAndCountry(
+        Page<Score> findByMapDifficultyIdAndActiveTrueWithUser(
                         @Param("mapDifficultyId") UUID mapDifficultyId,
                         @Param("country") String country,
+                        @Param("search") String search,
                         Pageable pageable);
 
         @Query("""

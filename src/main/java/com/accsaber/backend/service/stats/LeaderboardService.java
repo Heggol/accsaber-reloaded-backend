@@ -25,17 +25,19 @@ public class LeaderboardService {
     private final UserCategoryStatisticsRepository statisticsRepository;
     private final CategoryRepository categoryRepository;
 
-    public Page<LeaderboardResponse> getGlobal(UUID categoryId, Pageable pageable) {
+    public Page<LeaderboardResponse> getGlobal(UUID categoryId, String search, Pageable pageable) {
         verifyCategory(categoryId);
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
         Pageable effective = withDefaultSort(pageable, Sort.by(Sort.Direction.ASC, "ranking"));
-        return statisticsRepository.findActiveByCategoryPaged(categoryId, effective)
+        return statisticsRepository.findActiveByCategoryPaged(categoryId, searchParam, effective)
                 .map(this::toResponse);
     }
 
-    public Page<LeaderboardResponse> getByCountry(UUID categoryId, String country, Pageable pageable) {
+    public Page<LeaderboardResponse> getByCountry(UUID categoryId, String country, String search, Pageable pageable) {
         verifyCategory(categoryId);
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
         Pageable effective = withDefaultSort(pageable, Sort.by(Sort.Direction.ASC, "countryRanking"));
-        return statisticsRepository.findActiveByCategoryAndCountryPaged(categoryId, country, effective)
+        return statisticsRepository.findActiveByCategoryAndCountryPaged(categoryId, country, searchParam, effective)
                 .map(this::toResponse);
     }
 

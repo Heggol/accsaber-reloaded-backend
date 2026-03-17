@@ -39,26 +39,27 @@ public class MapController {
     private final ScoreService scoreService;
     private final MapDifficultyStatisticsService statisticsService;
 
-    @Operation(summary = "List maps", description = "Paginated map list, optionally filtered by category and/or status")
+    @Operation(summary = "List maps", description = "Paginated map list, optionally filtered by category, status, and/or song name search")
     @GetMapping
     public ResponseEntity<Page<MapResponse>> listMaps(
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(required = false) MapDifficultyStatus status,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "songName", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(mapService.findAll(categoryId, status, pageable));
+        return ResponseEntity.ok(mapService.findAll(categoryId, status, search, pageable));
     }
 
-    @Operation(summary = "List difficulties", description = "Paginated difficulty list with map metadata, filterable by category, status, and complexity range. "
-            + "Supports sorting by ANY difficulty field")
+    @Operation(summary = "List difficulties", description = "Paginated difficulty list with map metadata, filterable by category, status, complexity range, and/or song name search")
     @GetMapping("/difficulties")
     public ResponseEntity<Page<MapDifficultyResponse>> listDifficulties(
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(required = false) MapDifficultyStatus status,
             @RequestParam(required = false) BigDecimal complexityMin,
             @RequestParam(required = false) BigDecimal complexityMax,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "rankedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity
-                .ok(mapService.findDifficulties(categoryId, status, complexityMin, complexityMax, pageable));
+                .ok(mapService.findDifficulties(categoryId, status, complexityMin, complexityMax, search, pageable));
     }
 
     @Operation(summary = "Get map by ID", description = "Returns a map with all its active difficulties, current complexities, and statistics")
@@ -73,13 +74,14 @@ public class MapController {
         return ResponseEntity.ok(mapService.findDifficultiesByMapId(mapId));
     }
 
-    @Operation(summary = "Difficulty leaderboard", description = "Paginated scores with player info for a specific difficulty, sorted by score descending. Optionally filter by country code (e.g. ES, GB)")
+    @Operation(summary = "Difficulty leaderboard", description = "Paginated scores with player info for a specific difficulty, sorted by score descending. Optionally filter by country code (e.g. ES, GB) and/or player name search")
     @GetMapping("/difficulties/{difficultyId}/scores")
     public ResponseEntity<Page<ScoreLeaderboardResponse>> getDifficultyLeaderboard(
             @PathVariable UUID difficultyId,
             @RequestParam(required = false) String country,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "score", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(scoreService.findLeaderboardByMapDifficulty(difficultyId, country, pageable));
+        return ResponseEntity.ok(scoreService.findLeaderboardByMapDifficulty(difficultyId, country, search, pageable));
     }
 
     @Operation(summary = "Current statistics for a difficulty", description = "Returns the active aggregate statistics (maxAp, minAp, averageAp, totalScores) for a difficulty")

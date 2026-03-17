@@ -51,8 +51,9 @@ public class MapService {
     private final MapDifficultyStatisticsService statisticsService;
     private final StaffUserRepository staffUserRepository;
 
-    public Page<MapResponse> findAll(UUID categoryId, MapDifficultyStatus status, Pageable pageable) {
-        Page<Map> maps = mapRepository.findByDifficultyFilters(categoryId, status, pageable);
+    public Page<MapResponse> findAll(UUID categoryId, MapDifficultyStatus status, String search, Pageable pageable) {
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
+        Page<Map> maps = mapRepository.findByDifficultyFilters(categoryId, status, searchParam, pageable);
         if (maps.isEmpty())
             return maps.map(m -> toMapResponse(m, List.of()));
 
@@ -100,9 +101,10 @@ public class MapService {
     }
 
     public Page<MapDifficultyResponse> findDifficulties(UUID categoryId, MapDifficultyStatus status,
-            BigDecimal complexityMin, BigDecimal complexityMax, Pageable pageable) {
+            BigDecimal complexityMin, BigDecimal complexityMax, String search, Pageable pageable) {
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
         Page<MapDifficulty> difficulties = mapDifficultyRepository.findWithComplexityFilters(
-                categoryId, status, complexityMin, complexityMax, resolveDifficultySort(pageable));
+                categoryId, status, complexityMin, complexityMax, searchParam, resolveDifficultySort(pageable));
 
         if (difficulties.isEmpty())
             return difficulties.map(d -> toDifficultyResponse(d, null, null, null));

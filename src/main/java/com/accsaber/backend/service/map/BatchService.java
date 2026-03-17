@@ -48,21 +48,23 @@ public class BatchService {
     private final ScoreImportService scoreImportService;
     private final ScoreRecalculationService scoreRecalculationService;
 
-    public Page<BatchResponse> findAll(Pageable pageable) {
+    public Page<BatchResponse> findAll(String search, Pageable pageable) {
         Pageable effective = resolveBatchSort(pageable);
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
         boolean needsCountSort = hasDifficultyCountSort(pageable);
         Page<Batch> batches = needsCountSort
-                ? batchRepository.findAllWithDifficultyCount(effective)
-                : batchRepository.findAll(effective);
+                ? batchRepository.findAllWithDifficultyCount(searchParam, effective)
+                : batchRepository.findAllWithSearch(searchParam, effective);
         return batches.map(b -> toResponse(b, loadDifficulties(b.getId())));
     }
 
-    public Page<BatchResponse> findByStatus(BatchStatus status, Pageable pageable) {
+    public Page<BatchResponse> findByStatus(BatchStatus status, String search, Pageable pageable) {
         Pageable effective = resolveBatchSort(pageable);
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
         boolean needsCountSort = hasDifficultyCountSort(pageable);
         Page<Batch> batches = needsCountSort
-                ? batchRepository.findByStatusWithDifficultyCount(status, effective)
-                : batchRepository.findByStatus(status, effective);
+                ? batchRepository.findByStatusWithDifficultyCount(status, searchParam, effective)
+                : batchRepository.findByStatusWithSearch(status, searchParam, effective);
         return batches.map(b -> toResponse(b, loadDifficulties(b.getId())));
     }
 

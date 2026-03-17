@@ -29,14 +29,15 @@ public class BatchController {
 
     private final BatchService batchService;
 
-    @Operation(summary = "List batches", description = "Paginated batch list, optionally filtered by status")
+    @Operation(summary = "List batches", description = "Paginated batch list, optionally filtered by status and/or batch name search")
     @GetMapping
     public ResponseEntity<Page<BatchResponse>> listBatches(
             @RequestParam(required = false) BatchStatus status,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<BatchResponse> result = status != null
-                ? batchService.findByStatus(status, pageable)
-                : batchService.findAll(pageable);
+                ? batchService.findByStatus(status, search, pageable)
+                : batchService.findAll(search, pageable);
         return ResponseEntity.ok(result);
     }
 

@@ -395,18 +395,17 @@ public class ScoreService {
         }
 
         public Page<ScoreLeaderboardResponse> findLeaderboardByMapDifficulty(UUID mapDifficultyId, String country,
-                        Pageable pageable) {
+                        String search, Pageable pageable) {
                 MapDifficulty difficulty = mapDifficultyRepository.findByIdAndActiveTrue(mapDifficultyId)
                                 .orElseThrow(() -> new ResourceNotFoundException("MapDifficulty", mapDifficultyId));
                 if (difficulty.getMaxScore() == null || difficulty.getMaxScore() <= 0) {
                         throw new ValidationException("Map difficulty has no valid max score configured");
                 }
                 Pageable effective = resolveSort(pageable, Sort.by(Sort.Direction.DESC, "score"));
-                Page<Score> scores = (country != null && !country.isBlank())
-                                ? scoreRepository.findByMapDifficultyIdAndActiveTrueWithUserAndCountry(
-                                                mapDifficultyId, country.toUpperCase(), effective)
-                                : scoreRepository.findByMapDifficultyIdAndActiveTrueWithUser(mapDifficultyId,
-                                                effective);
+                String countryParam = (country != null && !country.isBlank()) ? country.toUpperCase() : null;
+                String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
+                Page<Score> scores = scoreRepository.findByMapDifficultyIdAndActiveTrueWithUser(
+                                mapDifficultyId, countryParam, searchParam, effective);
                 return scores.map(s -> toLeaderboardResponse(s,
                                 computeAccuracy(s.getScore(), difficulty.getMaxScore()),
                                 loadModifierIds(s.getId())));

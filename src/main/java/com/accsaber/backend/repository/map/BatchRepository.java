@@ -13,26 +13,55 @@ import com.accsaber.backend.model.entity.map.BatchStatus;
 
 public interface BatchRepository extends JpaRepository<Batch, UUID> {
 
-        Page<Batch> findByStatus(BatchStatus status, Pageable pageable);
-
         @Query(value = """
                         SELECT b FROM Batch b
-                        LEFT JOIN b.difficulties d ON d.active = true
-                        GROUP BY b
+                        WHERE (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         """, countQuery = """
                         SELECT COUNT(b) FROM Batch b
+                        WHERE (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         """)
-        Page<Batch> findAllWithDifficultyCount(Pageable pageable);
+        Page<Batch> findAllWithSearch(
+                        @Param("search") String search, Pageable pageable);
+
+        @Query(value = """
+                        SELECT b FROM Batch b
+                        WHERE b.status = :status
+                        AND (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                        """, countQuery = """
+                        SELECT COUNT(b) FROM Batch b
+                        WHERE b.status = :status
+                        AND (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                        """)
+        Page<Batch> findByStatusWithSearch(
+                        @Param("status") BatchStatus status,
+                        @Param("search") String search,
+                        Pageable pageable);
+
+        @Query(value = """
+                        SELECT b FROM Batch b
+                        LEFT JOIN b.difficulties d ON d.active = true
+                        WHERE (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                        GROUP BY b
+                        """, countQuery = """
+                        SELECT COUNT(b) FROM Batch b
+                        WHERE (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                        """)
+        Page<Batch> findAllWithDifficultyCount(
+                        @Param("search") String search, Pageable pageable);
 
         @Query(value = """
                         SELECT b FROM Batch b
                         LEFT JOIN b.difficulties d ON d.active = true
                         WHERE b.status = :status
+                        AND (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         GROUP BY b
                         """, countQuery = """
                         SELECT COUNT(b) FROM Batch b
                         WHERE b.status = :status
+                        AND (:search IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :search, '%')))
                         """)
         Page<Batch> findByStatusWithDifficultyCount(
-                        @Param("status") BatchStatus status, Pageable pageable);
+                        @Param("status") BatchStatus status,
+                        @Param("search") String search,
+                        Pageable pageable);
 }

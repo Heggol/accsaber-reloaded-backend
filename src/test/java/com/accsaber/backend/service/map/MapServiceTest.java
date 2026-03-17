@@ -69,10 +69,10 @@ class MapServiceTest {
 
                 @Test
                 void returnsEmptyPage_whenNoMapsMatchFilters() {
-                        when(mapRepository.findByDifficultyFilters(null, null, PageRequest.of(0, 20)))
+                        when(mapRepository.findByDifficultyFilters(null, null, null, PageRequest.of(0, 20)))
                                         .thenReturn(Page.empty());
 
-                        Page<MapResponse> result = mapService.findAll(null, null, PageRequest.of(0, 20));
+                        Page<MapResponse> result = mapService.findAll(null, null, null, PageRequest.of(0, 20));
 
                         assertThat(result).isEmpty();
                 }
@@ -83,7 +83,7 @@ class MapServiceTest {
                         Category category = buildCategory();
                         MapDifficulty diff = buildDifficulty(map, category);
                         Page<Map> mapPage = new PageImpl<>(List.of(map));
-                        when(mapRepository.findByDifficultyFilters(null, null, PageRequest.of(0, 20)))
+                        when(mapRepository.findByDifficultyFilters(null, null, null, PageRequest.of(0, 20)))
                                         .thenReturn(mapPage);
                         when(mapDifficultyRepository.findByMapIdsWithFilters(List.of(map.getId()), null, null))
                                         .thenReturn(List.of(diff));
@@ -92,7 +92,7 @@ class MapServiceTest {
                         when(statisticsService.findActiveForDifficulties(any()))
                                         .thenReturn(java.util.Map.of());
 
-                        Page<MapResponse> result = mapService.findAll(null, null, PageRequest.of(0, 20));
+                        Page<MapResponse> result = mapService.findAll(null, null, null, PageRequest.of(0, 20));
 
                         assertThat(result).hasSize(1);
                         assertThat(result.getContent().get(0).getSongName()).isEqualTo("Song");

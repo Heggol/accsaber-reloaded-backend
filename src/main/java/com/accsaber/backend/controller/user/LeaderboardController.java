@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.accsaber.backend.model.dto.response.player.LeaderboardResponse;
@@ -27,20 +28,22 @@ public class LeaderboardController {
 
     private final LeaderboardService leaderboardService;
 
-    @Operation(summary = "Global leaderboard", description = "Paginated global rankings for a category, sorted by ranking ascending")
+    @Operation(summary = "Global leaderboard", description = "Paginated global rankings for a category, sorted by ranking ascending. Optionally filter by player name search")
     @GetMapping("/{categoryId}")
     public ResponseEntity<Page<LeaderboardResponse>> getGlobal(
             @PathVariable UUID categoryId,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "ranking", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(leaderboardService.getGlobal(categoryId, pageable));
+        return ResponseEntity.ok(leaderboardService.getGlobal(categoryId, search, pageable));
     }
 
-    @Operation(summary = "Country leaderboard", description = "Paginated rankings filtered by country for a category, sorted by AP descending")
+    @Operation(summary = "Country leaderboard", description = "Paginated rankings filtered by country for a category, sorted by AP descending. Optionally filter by player name search")
     @GetMapping("/{categoryId}/country/{country}")
     public ResponseEntity<Page<LeaderboardResponse>> getByCountry(
             @PathVariable UUID categoryId,
             @PathVariable String country,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "ranking", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(leaderboardService.getByCountry(categoryId, country, pageable));
+        return ResponseEntity.ok(leaderboardService.getByCountry(categoryId, country, search, pageable));
     }
 }

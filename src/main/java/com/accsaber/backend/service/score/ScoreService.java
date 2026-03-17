@@ -561,9 +561,15 @@ public class ScoreService {
                 Sort resolved = Sort.unsorted();
                 for (Sort.Order order : pageable.getSort()) {
                         if ("accuracy".equalsIgnoreCase(order.getProperty())) {
-                                resolved = resolved.and(JpaSort.unsafe(order.getDirection(), ACCURACY_SORT_EXPRESSION));
+                                resolved = resolved
+                                                .and(JpaSort.unsafe(Sort.Direction.ASC,
+                                                                "(CASE WHEN (" + ACCURACY_SORT_EXPRESSION
+                                                                                + ") IS NULL THEN 1 ELSE 0 END)"))
+                                                .and(JpaSort.unsafe(order.getDirection(), ACCURACY_SORT_EXPRESSION));
                         } else {
-                                resolved = resolved.and(Sort.by(order.getDirection(), order.getProperty()));
+                                resolved = resolved.and(Sort.by(
+                                                new Sort.Order(order.getDirection(), order.getProperty(),
+                                                                Sort.NullHandling.NULLS_LAST)));
                         }
                 }
                 return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), resolved);

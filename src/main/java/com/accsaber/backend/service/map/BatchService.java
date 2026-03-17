@@ -195,9 +195,13 @@ public class BatchService {
         Sort resolved = Sort.unsorted();
         for (Sort.Order order : pageable.getSort()) {
             if ("difficultyCount".equals(order.getProperty())) {
-                resolved = resolved.and(JpaSort.unsafe(order.getDirection(), "COUNT(d)"));
+                resolved = resolved
+                        .and(JpaSort.unsafe(Sort.Direction.ASC, "(CASE WHEN COUNT(d) IS NULL THEN 1 ELSE 0 END)"))
+                        .and(JpaSort.unsafe(order.getDirection(), "COUNT(d)"));
             } else {
-                resolved = resolved.and(Sort.by(order.getDirection(), order.getProperty()));
+                resolved = resolved.and(Sort.by(
+                        new Sort.Order(order.getDirection(), order.getProperty(),
+                                Sort.NullHandling.NULLS_LAST)));
             }
         }
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), resolved);

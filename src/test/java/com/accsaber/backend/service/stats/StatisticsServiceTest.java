@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.accsaber.backend.exception.ResourceNotFoundException;
+import com.accsaber.backend.model.dto.response.player.StatsDiffResponse;
 import com.accsaber.backend.model.dto.response.player.UserCategoryStatisticsResponse;
 import com.accsaber.backend.model.entity.Category;
 import com.accsaber.backend.model.entity.Curve;
@@ -365,6 +366,111 @@ class StatisticsServiceTest {
                 void invalidUnit_throws() {
                         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                                         () -> statisticsService.findHistoric(user.getId(), "true_acc", 7, "x"));
+                }
+        }
+
+        @Nested
+        class ComputeStatsDiff {
+
+                @Test
+                void returnsDiffBetweenBaseAndLatest() {
+                        UserCategoryStatistics base = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("300.000000")).scoreXp(new BigDecimal("100.000000"))
+                                        .averageAcc(new BigDecimal("0.950000")).averageAp(new BigDecimal("200.000000"))
+                                        .ranking(10).countryRanking(5).rankedPlays(3)
+                                        .createdAt(Instant.now().minusSeconds(86400 * 2))
+                                        .active(false).build();
+                        UserCategoryStatistics latest = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("500.000000")).scoreXp(new BigDecimal("250.000000"))
+                                        .averageAcc(new BigDecimal("0.970000")).averageAp(new BigDecimal("350.000000"))
+                                        .ranking(7).countryRanking(3).rankedPlays(5)
+                                        .createdAt(Instant.now())
+                                        .active(true).build();
+
+                        when(statisticsRepository.findLatestBeforeLastDay(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.of(base));
+                        when(statisticsRepository.findMostRecent(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.of(latest));
+
+                        Optional<StatsDiffResponse> result = statisticsService.computeStatsDiff(user.getId(),
+                                        "true_acc");
+
+                        assertThat(result).isPresent();
+                        StatsDiffResponse diff = result.get();
+                        assertThat(diff.getCategoryId()).isEqualTo(category.getId());
+                        assertThat(diff.getApDiff()).isEqualByComparingTo(new BigDecimal("200.000000"));
+                        assertThat(diff.getScoreXpDiff()).isEqualByComparingTo(new BigDecimal("150.000000"));
+                        assertThat(diff.getAverageAccDiff()).isEqualByComparingTo(new BigDecimal("0.020000"));
+                        assertThat(diff.getAverageApDiff()).isEqualByComparingTo(new BigDecimal("150.000000"));
+                        assertThat(diff.getRankingDiff()).isEqualTo(-3);
+                        assertThat(diff.getCountryRankingDiff()).isEqualTo(-2);
+                        assertThat(diff.getRankedPlaysDiff()).isEqualTo(2);
+                }
+
+                @Test
+                void noBaselineBeforeLastDay_returnsEmpty() {
+                        when(statisticsRepository.findLatestBeforeLastDay(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.empty());
+
+                        Optional<StatsDiffResponse> result = statisticsService.computeStatsDiff(user.getId(),
+                                        "true_acc");
+
+                        assertThat(result).isEmpty();
+                }
+
+                @Test
+                void noMostRecent_returnsEmpty() {
+                        UserCategoryStatistics base = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(BigDecimal.ZERO).scoreXp(BigDecimal.ZERO).rankedPlays(0)
+                                        .createdAt(Instant.now().minusSeconds(86400 * 2))
+                                        .active(false).build();
+                        when(statisticsRepository.findLatestBeforeLastDay(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.of(base));
+                        when(statisticsRepository.findMostRecent(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.empty());
+
+                        Optional<StatsDiffResponse> result = statisticsService.computeStatsDiff(user.getId(),
+                                        "true_acc");
+
+                        assertThat(result).isEmpty();
+                }
+
+                @Test
+                void nullableFields_handledGracefully() {
+                        UserCategoryStatistics base = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("100.000000")).scoreXp(BigDecimal.ZERO)
+                                        .ranking(null).countryRanking(null)
+                                        .averageAcc(null).averageAp(null).rankedPlays(0)
+                                        .createdAt(Instant.now().minusSeconds(86400 * 2))
+                                        .active(false).build();
+                        UserCategoryStatistics latest = UserCategoryStatistics.builder()
+                                        .id(UUID.randomUUID()).user(user).category(category)
+                                        .ap(new BigDecimal("200.000000")).scoreXp(new BigDecimal("50.000000"))
+                                        .ranking(5).countryRanking(2)
+                                        .averageAcc(new BigDecimal("0.960000")).averageAp(new BigDecimal("200.000000"))
+                                        .rankedPlays(1)
+                                        .createdAt(Instant.now())
+                                        .active(true).build();
+
+                        when(statisticsRepository.findLatestBeforeLastDay(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.of(base));
+                        when(statisticsRepository.findMostRecent(user.getId(), "true_acc"))
+                                        .thenReturn(Optional.of(latest));
+
+                        Optional<StatsDiffResponse> result = statisticsService.computeStatsDiff(user.getId(),
+                                        "true_acc");
+
+                        assertThat(result).isPresent();
+                        StatsDiffResponse diff = result.get();
+                        assertThat(diff.getApDiff()).isEqualByComparingTo(new BigDecimal("100.000000"));
+                        assertThat(diff.getAverageAccDiff()).isNull();
+                        assertThat(diff.getAverageApDiff()).isNull();
+                        assertThat(diff.getRankingDiff()).isNull();
+                        assertThat(diff.getCountryRankingDiff()).isNull();
                 }
         }
 }

@@ -27,23 +27,24 @@ public interface UserCategoryStatisticsRepository extends JpaRepository<UserCate
           WHERE ucs.user_id = :userId AND c.code = :categoryCode
             AND ucs.created_at > GREATEST(CAST(:since AS timestamptz), NOW() - INTERVAL '24 hours')
           UNION ALL
-          SELECT * FROM (
-              SELECT DISTINCT ON (date_trunc(
-                  CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
-                      THEN 'week' ELSE 'day' END,
-                  ucs.created_at
-              )) ucs.*
-              FROM user_category_statistics ucs
-              JOIN categories c ON ucs.category_id = c.id
-              WHERE ucs.user_id = :userId AND c.code = :categoryCode
-                AND ucs.created_at > CAST(:since AS timestamptz)
-                AND ucs.created_at <= NOW() - INTERVAL '24 hours'
-              ORDER BY date_trunc(
-                  CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
-                      THEN 'week' ELSE 'day' END,
-                  ucs.created_at
-              ), ucs.created_at DESC
-          ) downsampled
+          SELECT ucs.* FROM user_category_statistics ucs
+          INNER JOIN (
+              SELECT sub.id FROM (
+                  SELECT id, ROW_NUMBER() OVER (
+                      PARTITION BY date_trunc(
+                          CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
+                              THEN 'week' ELSE 'day' END,
+                          created_at
+                      )
+                      ORDER BY created_at DESC
+                  ) AS rn
+                  FROM user_category_statistics
+                  WHERE user_id = :userId
+                    AND category_id = (SELECT id FROM categories WHERE code = :categoryCode)
+                    AND created_at > CAST(:since AS timestamptz)
+                    AND created_at <= NOW() - INTERVAL '24 hours'
+              ) sub WHERE sub.rn = 1
+          ) picked ON ucs.id = picked.id
       ) combined
       ORDER BY created_at ASC
       """, nativeQuery = true)

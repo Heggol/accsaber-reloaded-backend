@@ -158,22 +158,23 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
                 WHERE user_id = :userId AND map_difficulty_id = :difficultyId
                 AND created_at > GREATEST(CAST(:since AS timestamptz), NOW() - INTERVAL '24 hours')
                 UNION ALL
-                SELECT * FROM (
-                    SELECT DISTINCT ON (date_trunc(
-                        CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
-                            THEN 'week' ELSE 'day' END,
-                        created_at
-                    )) *
-                    FROM scores
-                    WHERE user_id = :userId AND map_difficulty_id = :difficultyId
-                    AND created_at > CAST(:since AS timestamptz)
-                    AND created_at <= NOW() - INTERVAL '24 hours'
-                    ORDER BY date_trunc(
-                        CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
-                            THEN 'week' ELSE 'day' END,
-                        created_at
-                    ), created_at DESC
-                ) downsampled
+                SELECT s.* FROM scores s
+                INNER JOIN (
+                    SELECT sub.id FROM (
+                        SELECT id, ROW_NUMBER() OVER (
+                            PARTITION BY date_trunc(
+                                CASE WHEN CAST(:since AS timestamptz) < NOW() - INTERVAL '65 days'
+                                    THEN 'week' ELSE 'day' END,
+                                created_at
+                            )
+                            ORDER BY created_at DESC
+                        ) AS rn
+                        FROM scores
+                        WHERE user_id = :userId AND map_difficulty_id = :difficultyId
+                        AND created_at > CAST(:since AS timestamptz)
+                        AND created_at <= NOW() - INTERVAL '24 hours'
+                    ) sub WHERE sub.rn = 1
+                ) picked ON s.id = picked.id
             ) combined
             ORDER BY created_at ASC
             """, nativeQuery = true)

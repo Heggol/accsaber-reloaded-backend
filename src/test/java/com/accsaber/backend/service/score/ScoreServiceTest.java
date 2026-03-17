@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -324,6 +326,58 @@ class ScoreServiceTest {
                         assertThatThrownBy(() -> scoreService.submit(buildRequest(950_000)))
                                         .isInstanceOf(ValidationException.class)
                                         .hasMessageContaining("Banned");
+                }
+        }
+
+        @Nested
+        class FindHistoric {
+
+                @Test
+                void returnsScoresMappedToResponses() {
+                        Score s1 = Score.builder()
+                                        .id(UUID.randomUUID())
+                                        .user(activeUser)
+                                        .mapDifficulty(rankedDifficulty)
+                                        .score(950_000).scoreNoMods(950_000)
+                                        .rank(1).rankWhenSet(1)
+                                        .ap(new BigDecimal("500.000000"))
+                                        .weightedAp(new BigDecimal("500.000000"))
+                                        .active(false)
+                                        .createdAt(Instant.now().minusSeconds(3600))
+                                        .build();
+                        Score s2 = Score.builder()
+                                        .id(UUID.randomUUID())
+                                        .user(activeUser)
+                                        .mapDifficulty(rankedDifficulty)
+                                        .score(970_000).scoreNoMods(970_000)
+                                        .rank(1).rankWhenSet(1)
+                                        .ap(new BigDecimal("600.000000"))
+                                        .weightedAp(new BigDecimal("600.000000"))
+                                        .active(true)
+                                        .createdAt(Instant.now())
+                                        .build();
+
+                        when(scoreRepository.findHistoricDownsampled(
+                                        org.mockito.ArgumentMatchers.eq(activeUser.getId()),
+                                        org.mockito.ArgumentMatchers.eq(rankedDifficulty.getId()),
+                                        any(Instant.class)))
+                                        .thenReturn(List.of(s1, s2));
+                        when(modifierLinkRepository.findByScore_Id(any()))
+                                        .thenReturn(Collections.emptyList());
+
+                        List<ScoreResponse> result = scoreService.findHistoric(
+                                        activeUser.getId(), rankedDifficulty.getId(), 7, "d");
+
+                        assertThat(result).hasSize(2);
+                        assertThat(result.get(0).getAp()).isEqualByComparingTo(new BigDecimal("500.000000"));
+                        assertThat(result.get(1).getAp()).isEqualByComparingTo(new BigDecimal("600.000000"));
+                }
+
+                @Test
+                void invalidUnit_throws() {
+                        assertThatThrownBy(() -> scoreService.findHistoric(
+                                        activeUser.getId(), rankedDifficulty.getId(), 7, "x"))
+                                        .isInstanceOf(IllegalArgumentException.class);
                 }
         }
 }

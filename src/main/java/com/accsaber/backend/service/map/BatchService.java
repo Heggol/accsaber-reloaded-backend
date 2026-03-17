@@ -7,7 +7,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,13 +49,21 @@ public class BatchService {
     private final ScoreRecalculationService scoreRecalculationService;
 
     public Page<BatchResponse> findAll(Pageable pageable) {
-        Page<Batch> batches = batchRepository.findAll(pageable);
+        Pageable effective = resolveBatchSort(pageable);
+        boolean needsCountSort = hasDifficultyCountSort(pageable);
+        Page<Batch> batches = needsCountSort
+                ? batchRepository.findAllWithDifficultyCount(effective)
+                : batchRepository.findAll(effective);
         return batches.map(b -> toResponse(b, loadDifficulties(b.getId())));
     }
 
     public Page<BatchResponse> findByStatus(BatchStatus status, Pageable pageable) {
-        return batchRepository.findByStatus(status, pageable)
-                .map(b -> toResponse(b, loadDifficulties(b.getId())));
+        Pageable effective = resolveBatchSort(pageable);
+        boolean needsCountSort = hasDifficultyCountSort(pageable);
+        Page<Batch> batches = needsCountSort
+                ? batchRepository.findByStatusWithDifficultyCount(status, effective)
+                : batchRepository.findByStatus(status, effective);
+        return batches.map(b -> toResponse(b, loadDifficulties(b.getId())));
     }
 
     public BatchResponse findById(UUID id) {
@@ -154,6 +165,26 @@ public class BatchService {
         }
 
         scoreRecalculationService.recalculateBatchAsync(difficulties);
+    }
+
+    private static boolean hasDifficultyCountSort(Pageable pageable) {
+        return pageable.getSort().stream()
+                .anyMatch(order -> "difficultyCount".equals(order.getProperty()));
+    }
+
+    private static Pageable resolveBatchSort(Pageable pageable) {
+        if (!pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        Sort resolved = Sort.unsorted();
+        for (Sort.Order order : pageable.getSort()) {
+            if ("difficultyCount".equals(order.getProperty())) {
+                resolved = resolved.and(JpaSort.unsafe(order.getDirection(), "COUNT(d)"));
+            } else {
+                resolved = resolved.and(Sort.by(order.getDirection(), order.getProperty()));
+            }
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), resolved);
     }
 
     private Batch findUnreleasedBatch(UUID batchId) {

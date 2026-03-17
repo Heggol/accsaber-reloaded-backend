@@ -42,7 +42,7 @@ public class ReweightService {
         req.setReason(reason);
         mapService.updateComplexity(mapDifficultyId, req, staffUserId, staffId);
 
-        scoreRecalculationService.recalculateScoresAsync(mapDifficultyId);
+        scoreRecalculationService.recalculateDifficultyAsync(mapDifficultyId);
 
         return mapService.getDifficultyResponse(mapDifficultyId);
     }

@@ -79,7 +79,7 @@ class ReweightServiceTest {
 
         assertThat(result).isEqualTo(expected);
         verify(mapService).updateComplexity(eq(diff.getId()), any(), any(), any());
-        verify(scoreRecalculationService).recalculateScoresAsync(diff.getId());
+        verify(scoreRecalculationService).recalculateDifficultyAsync(diff.getId());
     }
 
     private MapDifficulty buildDifficulty(MapDifficultyStatus status) {

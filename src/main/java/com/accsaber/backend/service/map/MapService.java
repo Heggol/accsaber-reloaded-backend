@@ -26,6 +26,7 @@ import com.accsaber.backend.model.dto.response.map.MapDifficultyStatisticsRespon
 import com.accsaber.backend.model.dto.response.map.MapResponse;
 import com.accsaber.backend.model.entity.Category;
 import com.accsaber.backend.model.entity.map.Batch;
+import com.accsaber.backend.model.entity.map.Difficulty;
 import com.accsaber.backend.model.entity.map.Map;
 import com.accsaber.backend.model.entity.map.MapDifficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
@@ -95,13 +96,13 @@ public class MapService {
             String mapped = JPQL_SORT_MAPPING.get(order.getProperty());
             if (mapped != null) {
                 resolved = resolved
-                    .and(JpaSort.unsafe(Sort.Direction.ASC,
-                        "(CASE WHEN " + mapped + " IS NULL THEN 1 ELSE 0 END)"))
-                    .and(JpaSort.unsafe(order.getDirection(), mapped));
+                        .and(JpaSort.unsafe(Sort.Direction.ASC,
+                                "(CASE WHEN " + mapped + " IS NULL THEN 1 ELSE 0 END)"))
+                        .and(JpaSort.unsafe(order.getDirection(), mapped));
             } else {
                 resolved = resolved.and(Sort.by(
-                    new Sort.Order(order.getDirection(), order.getProperty(),
-                        Sort.NullHandling.NULLS_LAST)));
+                        new Sort.Order(order.getDirection(), order.getProperty(),
+                                Sort.NullHandling.NULLS_LAST)));
             }
         }
         boolean hasId = pageable.getSort().stream().anyMatch(o -> "id".equals(o.getProperty()));
@@ -145,6 +146,18 @@ public class MapService {
         }
         List<MapDifficulty> difficulties = mapDifficultyRepository.findByMapIdAndActiveTrue(mapId);
         return enrichDifficulties(difficulties);
+    }
+
+    public MapResponse findBySongHash(String songHash, Difficulty difficulty) {
+        Map map = mapRepository.findBySongHashAndActiveTrue(songHash)
+                .orElseThrow(() -> new ResourceNotFoundException("Map", songHash));
+        List<MapDifficulty> difficulties = mapDifficultyRepository.findByMapIdAndActiveTrue(map.getId());
+        if (difficulty != null) {
+            difficulties = difficulties.stream()
+                    .filter(d -> d.getDifficulty() == difficulty)
+                    .toList();
+        }
+        return toMapResponse(map, enrichDifficulties(difficulties));
     }
 
     public List<MapComplexityHistoryResponse> getComplexityHistory(UUID mapId) {

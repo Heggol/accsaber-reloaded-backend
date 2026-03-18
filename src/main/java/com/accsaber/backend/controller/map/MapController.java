@@ -20,6 +20,7 @@ import com.accsaber.backend.model.dto.response.map.MapDifficultyResponse;
 import com.accsaber.backend.model.dto.response.map.MapDifficultyStatisticsResponse;
 import com.accsaber.backend.model.dto.response.map.MapResponse;
 import com.accsaber.backend.model.dto.response.score.ScoreResponse;
+import com.accsaber.backend.model.entity.map.Difficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
 import com.accsaber.backend.service.map.MapDifficultyStatisticsService;
 import com.accsaber.backend.service.map.MapService;
@@ -66,6 +67,14 @@ public class MapController {
     @GetMapping("/{mapId}")
     public ResponseEntity<MapResponse> getMap(@PathVariable UUID mapId) {
         return ResponseEntity.ok(mapService.findById(mapId));
+    }
+
+    @Operation(summary = "Get map by song hash", description = "Returns a map by its song hash with active difficulties, optionally filtered by difficulty level")
+    @GetMapping("/hash/{songHash}")
+    public ResponseEntity<MapResponse> getMapBySongHash(
+            @PathVariable String songHash,
+            @RequestParam(required = false) Difficulty difficulty) {
+        return ResponseEntity.ok(mapService.findBySongHash(songHash, difficulty));
     }
 
     @Operation(summary = "List difficulties for a map")

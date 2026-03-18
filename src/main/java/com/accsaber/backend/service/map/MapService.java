@@ -160,6 +160,13 @@ public class MapService {
         return toMapResponse(map, enrichDifficulties(difficulties));
     }
 
+    public UUID findDifficultyIdByLeaderboardId(String leaderboardId) {
+        return mapDifficultyRepository.findByBlLeaderboardId(leaderboardId)
+                .or(() -> mapDifficultyRepository.findBySsLeaderboardId(leaderboardId))
+                .map(MapDifficulty::getId)
+                .orElseThrow(() -> new ResourceNotFoundException("MapDifficulty", leaderboardId));
+    }
+
     public List<MapComplexityHistoryResponse> getComplexityHistory(UUID mapId) {
         if (!mapRepository.existsById(mapId)) {
             throw new ResourceNotFoundException("Map", mapId);

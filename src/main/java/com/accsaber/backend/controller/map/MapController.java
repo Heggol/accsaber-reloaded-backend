@@ -83,6 +83,17 @@ public class MapController {
         return ResponseEntity.ok(mapService.findDifficultiesByMapId(mapId));
     }
 
+    @Operation(summary = "Difficulty leaderboard by leaderboard ID", description = "Paginated scores for a difficulty looked up by BeatLeader or ScoreSaber leaderboard ID (provide exactly one)")
+    @GetMapping("/difficulties/leaderboard/{leaderboardId}/scores")
+    public ResponseEntity<Page<ScoreResponse>> getDifficultyLeaderboardByLeaderboardId(
+            @PathVariable String leaderboardId,
+            @RequestParam(required = false) String country,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20, sort = "score", direction = Sort.Direction.DESC) Pageable pageable) {
+        UUID difficultyId = mapService.findDifficultyIdByLeaderboardId(leaderboardId);
+        return ResponseEntity.ok(scoreService.findLeaderboardByMapDifficulty(difficultyId, country, search, pageable));
+    }
+
     @Operation(summary = "Difficulty leaderboard", description = "Paginated scores with player info for a specific difficulty, sorted by score descending. Optionally filter by country code (e.g. ES, GB) and/or player name search")
     @GetMapping("/difficulties/{difficultyId}/scores")
     public ResponseEntity<Page<ScoreResponse>> getDifficultyLeaderboard(

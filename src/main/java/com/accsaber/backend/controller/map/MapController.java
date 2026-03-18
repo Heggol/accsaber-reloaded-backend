@@ -83,9 +83,9 @@ public class MapController {
         return ResponseEntity.ok(mapService.findDifficultiesByMapId(mapId));
     }
 
-    @Operation(summary = "Difficulty leaderboard by leaderboard ID", description = "Paginated scores for a difficulty looked up by BeatLeader or ScoreSaber leaderboard ID (provide exactly one)")
-    @GetMapping("/difficulties/leaderboard/{leaderboardId}/scores")
-    public ResponseEntity<Page<ScoreResponse>> getDifficultyLeaderboardByLeaderboardId(
+    @Operation(summary = "Difficulty scores by leaderboard ID", description = "Paginated scores for a difficulty looked up by BeatLeader or ScoreSaber leaderboard ID (provide exactly one)")
+    @GetMapping("/difficulties/{leaderboardId}/scores")
+    public ResponseEntity<Page<ScoreResponse>> getDifficultyScoresByLeaderboardId(
             @PathVariable String leaderboardId,
             @RequestParam(required = false) String country,
             @RequestParam(required = false) String search,

@@ -7,8 +7,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum StaffRole {
 
+    MODERATOR("moderator"),
     RANKING("ranking"),
     RANKING_HEAD("ranking_head"),
+    DEVELOPER("developer"),
     ADMIN("admin");
 
     private final String value;

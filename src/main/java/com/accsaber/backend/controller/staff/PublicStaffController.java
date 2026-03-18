@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/v1/staff/users")
+@RequestMapping("/v1/staff/users-public")
 @RequiredArgsConstructor
 @Tag(name = "Staff Users")
 public class PublicStaffController {

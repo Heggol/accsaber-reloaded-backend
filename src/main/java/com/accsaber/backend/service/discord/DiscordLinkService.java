@@ -131,7 +131,14 @@ public class DiscordLinkService {
             return id;
         }
 
-        throw new ValidationException("Invalid profile URL. Use a BeatLeader or ScoreSaber profile link.");
+        if (profileUrl.matches("\\d+")) {
+            return beatLeaderClient.getPlayer(profileUrl)
+                    .orElseThrow(() -> new ResourceNotFoundException("Player", profileUrl))
+                    .getId();
+        }
+
+        throw new ValidationException(
+                "Invalid profile URL. Use a BeatLeader or ScoreSaber profile link, or a numeric ID.");
     }
 
     private DiscordLinkResponse toResponse(DiscordUserLink link) {

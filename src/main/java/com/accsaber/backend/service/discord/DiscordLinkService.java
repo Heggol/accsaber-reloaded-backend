@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DiscordLinkService {
 
     private static final Pattern BEATLEADER_PATTERN = Pattern.compile(
-            "(?:https?://)?(?:www\\.)?beatleader\\.xyz/u/([\\w-]+)");
+            "(?:https?://)?(?:www\\.)?beatleader\\.(?:com|xyz)/u/([\\w-]+)");
     private static final Pattern SCORESABER_PATTERN = Pattern.compile(
             "(?:https?://)?(?:www\\.)?scoresaber\\.com/u/(\\d+)");
 

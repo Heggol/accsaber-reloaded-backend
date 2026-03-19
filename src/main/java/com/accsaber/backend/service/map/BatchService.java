@@ -196,8 +196,8 @@ public class BatchService {
             throw new ValidationException("Difficulties not in this batch: " + invalid);
         }
 
-        UpdateMapComplexityRequest req = new UpdateMapComplexityRequest();
         for (ApproveReweightRequest item : items) {
+            UpdateMapComplexityRequest req = new UpdateMapComplexityRequest();
             req.setComplexity(item.getComplexity());
             req.setReason(item.getReason());
             mapService.updateComplexity(item.getMapDifficultyId(), req, staffUserId, staffId);
@@ -208,9 +208,7 @@ public class BatchService {
                 .toList();
         scoreRecalculationService.recalculateBatchAsync(affectedDifficulties);
 
-        return enrich(batchDifficulties).stream()
-                .filter(r -> requestedIds.contains(r.getId()))
-                .toList();
+        return enrich(affectedDifficulties);
     }
 
     private static boolean hasDifficultyCountSort(Pageable pageable) {

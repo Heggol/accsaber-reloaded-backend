@@ -71,7 +71,7 @@ public class BadgeService {
     public UserBadgeResponse awardBadge(Long userId, UUID badgeId, StaffUser awardedBy, String reason) {
         Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
         if (!userRepository.existsById(resolved)) {
-            throw new ResourceNotFoundException("User", resolved);
+            throw new ResourceNotFoundException("User", userId);
         }
         Badge badge = badgeRepository.findByIdAndActiveTrue(badgeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Badge", badgeId));

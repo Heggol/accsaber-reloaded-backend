@@ -1,16 +1,10 @@
 package com.accsaber.backend.service.discord;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.accsaber.backend.client.BeatLeaderClient;
-import com.accsaber.backend.client.ScoreSaberClient;
 import com.accsaber.backend.exception.ConflictException;
 import com.accsaber.backend.exception.ResourceNotFoundException;
-import com.accsaber.backend.exception.ValidationException;
 import com.accsaber.backend.model.dto.request.discord.LinkDiscordRequest;
 import com.accsaber.backend.model.dto.request.discord.UpdateDiscordLinkRequest;
 import com.accsaber.backend.model.dto.response.DiscordLinkResponse;
@@ -19,6 +13,7 @@ import com.accsaber.backend.model.entity.user.User;
 import com.accsaber.backend.repository.user.DiscordUserLinkRepository;
 import com.accsaber.backend.repository.user.UserRepository;
 import com.accsaber.backend.service.player.DuplicateUserService;
+import com.accsaber.backend.util.ProfileUrlResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,16 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DiscordLinkService {
 
-    private static final Pattern BEATLEADER_PATTERN = Pattern.compile(
-            "(?:https?://)?(?:www\\.)?beatleader\\.(?:com|xyz)/u/([\\w-]+)");
-    private static final Pattern SCORESABER_PATTERN = Pattern.compile(
-            "(?:https?://)?(?:www\\.)?scoresaber\\.com/u/(\\d+)");
-
     private final DiscordUserLinkRepository discordUserLinkRepository;
     private final UserRepository userRepository;
     private final DuplicateUserService duplicateUserService;
-    private final BeatLeaderClient beatLeaderClient;
-    private final ScoreSaberClient scoreSaberClient;
+    private final ProfileUrlResolver profileUrlResolver;
 
     @Transactional
     public DiscordLinkResponse link(LinkDiscordRequest request) {
@@ -45,7 +34,7 @@ public class DiscordLinkService {
             throw new ConflictException("Discord account is already linked", request.getDiscordId());
         }
 
-        String steamId = extractSteamId(request.getProfileUrl());
+        String steamId = profileUrlResolver.resolve(request.getProfileUrl());
         Long userId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(steamId));
 
         if (discordUserLinkRepository.existsByUserId(userId)) {
@@ -95,7 +84,7 @@ public class DiscordLinkService {
         DiscordUserLink link = discordUserLinkRepository.findById(discordId)
                 .orElseThrow(() -> new ResourceNotFoundException("Discord link", discordId));
 
-        String steamId = extractSteamId(request.getProfileUrl());
+        String steamId = profileUrlResolver.resolve(request.getProfileUrl());
         Long newUserId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(steamId));
 
         if (!newUserId.equals(link.getUser().getId())
@@ -112,33 +101,6 @@ public class DiscordLinkService {
         log.info("Updated Discord {} link from user {} to user {}", discordId, oldUserId, newUserId);
 
         return toResponse(link);
-    }
-
-    private String extractSteamId(String profileUrl) {
-        Matcher blMatcher = BEATLEADER_PATTERN.matcher(profileUrl);
-        if (blMatcher.find()) {
-            String identifier = blMatcher.group(1);
-            return beatLeaderClient.getPlayer(identifier)
-                    .orElseThrow(() -> new ResourceNotFoundException("BeatLeader player", identifier))
-                    .getId();
-        }
-
-        Matcher ssMatcher = SCORESABER_PATTERN.matcher(profileUrl);
-        if (ssMatcher.find()) {
-            String id = ssMatcher.group(1);
-            scoreSaberClient.getPlayer(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("ScoreSaber player", id));
-            return id;
-        }
-
-        if (profileUrl.matches("\\d+")) {
-            return beatLeaderClient.getPlayer(profileUrl)
-                    .orElseThrow(() -> new ResourceNotFoundException("Player", profileUrl))
-                    .getId();
-        }
-
-        throw new ValidationException(
-                "Invalid profile URL. Use a BeatLeader or ScoreSaber profile link, or a numeric ID.");
     }
 
     private DiscordLinkResponse toResponse(DiscordUserLink link) {

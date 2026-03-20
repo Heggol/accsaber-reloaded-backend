@@ -424,7 +424,7 @@ public class ScoreImportService {
             Optional<Score> existingScore = scoreRepository
                     .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
             if (existingScore.isPresent()
-                    && existingScore.get().getScore().equals(blScore.getModifiedScore())) {
+                    && Objects.equals(existingScore.get().getScoreNoMods(), blScore.getBaseScore())) {
                 return null;
             }
             playerImportService.ensurePlayerExists(steamId);
@@ -458,7 +458,7 @@ public class ScoreImportService {
             Optional<Score> existingScore = scoreRepository
                     .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
             if (existingScore.isPresent()
-                    && existingScore.get().getScore().equals(ssScore.getModifiedScore())) {
+                    && Objects.equals(existingScore.get().getScoreNoMods(), ssScore.getBaseScore())) {
                 return null;
             }
             playerImportService.ensurePlayerExists(steamId);

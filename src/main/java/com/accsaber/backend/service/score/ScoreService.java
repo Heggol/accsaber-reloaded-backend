@@ -81,11 +81,14 @@ public class ScoreService {
                 Optional<Score> existing = scoreRepository
                                 .findByUser_IdAndMapDifficulty_IdAndActiveTrue(user.getId(), difficulty.getId());
 
-                if (existing.isPresent() && existing.get().getScore().equals(request.getScore())) {
+                if (existing.isPresent() && Objects.equals(existing.get().getScoreNoMods(), request.getScoreNoMods())) {
                         throw new ValidationException("Duplicate score: this exact score is already registered");
                 }
 
-                BigDecimal accuracy = computeAccuracy(request.getScore(), difficulty.getMaxScore());
+                List<Modifier> modifiers = resolveModifiers(request.getModifierIds());
+                Integer modifiedScore = applyModifierMultiplier(request.getScore(), modifiers);
+
+                BigDecimal accuracy = computeAccuracy(modifiedScore, difficulty.getMaxScore());
                 BigDecimal complexity = mapComplexityService.findActiveComplexity(difficulty.getId())
                                 .orElseThrow(() -> new ValidationException(
                                                 "No active complexity set for this map difficulty"));
@@ -97,11 +100,12 @@ public class ScoreService {
                 BigDecimal xpGained;
                 if (existing.isPresent() && rawAp.compareTo(existing.get().getAp()) <= 0) {
                         xpGained = xpCalculationService.calculateXpForWorseScore();
-                        Score history = buildScore(request, user, difficulty, rawAp, null);
+                        Score history = buildScore(request, user, difficulty, modifiedScore, rawAp, null);
                         history.setActive(false);
                         history.setSupersedesReason("Worse score");
                         history.setXpGained(xpGained);
                         scoreRepository.saveAndFlush(history);
+                        saveModifierLinks(history, modifiers);
                         updateUserXp(user, xpGained);
 
                         ScoreResponse worseResponse = toResponse(history,
@@ -126,11 +130,11 @@ public class ScoreService {
                         newRank = scoreRankingService.rankNewScore(difficulty.getId(), rawAp);
                 }
 
-                Score newScore = buildScore(request, user, difficulty, rawAp, supersedes);
+                Score newScore = buildScore(request, user, difficulty, modifiedScore, rawAp, supersedes);
                 newScore.setRank(newRank);
                 newScore.setXpGained(xpGained);
                 Score saved = scoreRepository.saveAndFlush(newScore);
-                saveModifierLinks(saved, request.getModifierIds());
+                saveModifierLinks(saved, modifiers);
 
                 updateUserXp(user, xpGained);
 
@@ -166,11 +170,14 @@ public class ScoreService {
                 Optional<Score> existing = scoreRepository
                                 .findByUser_IdAndMapDifficulty_IdAndActiveTrue(user.getId(), difficulty.getId());
 
-                if (existing.isPresent() && existing.get().getScore().equals(request.getScore())) {
+                if (existing.isPresent() && Objects.equals(existing.get().getScoreNoMods(), request.getScoreNoMods())) {
                         return;
                 }
 
-                BigDecimal accuracy = computeAccuracy(request.getScore(), difficulty.getMaxScore());
+                List<Modifier> modifiers = resolveModifiers(request.getModifierIds());
+                Integer modifiedScore = applyModifierMultiplier(request.getScore(), modifiers);
+
+                BigDecimal accuracy = computeAccuracy(modifiedScore, difficulty.getMaxScore());
                 APResult apResult = apCalculationService.calculateRawAP(
                                 accuracy, complexity, difficulty.getCategory().getScoreCurve());
                 BigDecimal rawAp = apResult.rawAP();
@@ -178,10 +185,11 @@ public class ScoreService {
                 BigDecimal xpGained;
                 if (existing.isPresent() && rawAp.compareTo(existing.get().getAp()) <= 0) {
                         xpGained = xpCalculationService.calculateXpForWorseScore();
-                        Score history = buildScore(request, user, difficulty, rawAp, null);
+                        Score history = buildScore(request, user, difficulty, modifiedScore, rawAp, null);
                         history.setActive(false);
                         history.setXpGained(xpGained);
                         scoreRepository.saveAndFlush(history);
+                        saveModifierLinks(history, modifiers);
                         updateUserXp(user, xpGained);
                         return;
                 }
@@ -196,10 +204,10 @@ public class ScoreService {
                         xpGained = xpCalculationService.calculateXpForNewMap(accuracy, complexity);
                 }
 
-                Score newScore = buildScore(request, user, difficulty, rawAp, supersedes);
+                Score newScore = buildScore(request, user, difficulty, modifiedScore, rawAp, supersedes);
                 newScore.setXpGained(xpGained);
                 Score saved = scoreRepository.saveAndFlush(newScore);
-                saveModifierLinks(saved, request.getModifierIds());
+                saveModifierLinks(saved, modifiers);
 
                 updateUserXp(user, xpGained);
         }
@@ -555,11 +563,11 @@ public class ScoreService {
         }
 
         private Score buildScore(SubmitScoreRequest req, User user, MapDifficulty difficulty,
-                        BigDecimal ap, Score supersedes) {
+                        Integer modifiedScore, BigDecimal ap, Score supersedes) {
                 return Score.builder()
                                 .user(user)
                                 .mapDifficulty(difficulty)
-                                .score(req.getScore())
+                                .score(modifiedScore)
                                 .scoreNoMods(req.getScoreNoMods())
                                 .rank(req.getRank())
                                 .rankWhenSet(req.getRankWhenSet())
@@ -582,13 +590,29 @@ public class ScoreService {
                                 .build();
         }
 
-        private void saveModifierLinks(Score score, List<UUID> modifierIds) {
+        private List<Modifier> resolveModifiers(List<UUID> modifierIds) {
                 if (modifierIds == null || modifierIds.isEmpty())
-                        return;
+                        return List.of();
                 List<Modifier> modifiers = modifierRepository.findAllById(modifierIds);
                 if (modifiers.size() != modifierIds.size()) {
                         throw new ValidationException("One or more modifier IDs are invalid");
                 }
+                return modifiers;
+        }
+
+        private Integer applyModifierMultiplier(Integer baseScore, List<Modifier> modifiers) {
+                if (modifiers.isEmpty())
+                        return baseScore;
+                BigDecimal combined = modifiers.stream()
+                                .map(Modifier::getMultiplier)
+                                .reduce(BigDecimal.ONE, BigDecimal::multiply);
+                return combined.multiply(BigDecimal.valueOf(baseScore))
+                                .setScale(0, RoundingMode.HALF_UP).intValue();
+        }
+
+        private void saveModifierLinks(Score score, List<Modifier> modifiers) {
+                if (modifiers.isEmpty())
+                        return;
                 List<ScoreModifierLink> links = modifiers.stream()
                                 .map(m -> ScoreModifierLink.builder().score(score).modifier(m).build())
                                 .toList();

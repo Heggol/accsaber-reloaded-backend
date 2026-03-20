@@ -3,6 +3,7 @@ package com.accsaber.backend.service.score;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -151,7 +152,7 @@ public class ScoreIngestionService {
                     Optional<Score> existingScore = scoreRepository
                             .findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId());
                     if (existingScore.isPresent()
-                            && existingScore.get().getScore().equals(ssScore.getModifiedScore())) {
+                            && Objects.equals(existingScore.get().getScoreNoMods(), ssScore.getBaseScore())) {
                         log.debug("Skipping delayed SS score for {} - identical score already exists", playKey);
                         return;
                     }

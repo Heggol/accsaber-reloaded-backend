@@ -32,7 +32,7 @@ class PlatformScoreMapperTest {
 
             assertThat(result.getUserId()).isEqualTo(USER_ID);
             assertThat(result.getMapDifficultyId()).isEqualTo(MAP_DIFF_ID);
-            assertThat(result.getScore()).isEqualTo(950000);
+            assertThat(result.getScore()).isEqualTo(900000);
             assertThat(result.getScoreNoMods()).isEqualTo(900000);
             assertThat(result.getRank()).isEqualTo(5);
             assertThat(result.getRankWhenSet()).isEqualTo(5);
@@ -184,7 +184,7 @@ class PlatformScoreMapperTest {
 
             assertThat(result.getUserId()).isEqualTo(USER_ID);
             assertThat(result.getMapDifficultyId()).isEqualTo(MAP_DIFF_ID);
-            assertThat(result.getScore()).isEqualTo(940000);
+            assertThat(result.getScore()).isEqualTo(890000);
             assertThat(result.getScoreNoMods()).isEqualTo(890000);
             assertThat(result.getRank()).isEqualTo(7);
             assertThat(result.getMaxCombo()).isEqualTo(480);

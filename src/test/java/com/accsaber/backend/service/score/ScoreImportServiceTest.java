@@ -156,7 +156,7 @@ class ScoreImportServiceTest {
                 void skipsExistingScores() {
                         when(beatLeaderClient.getLeaderboardScores("bl_123", 1, 100))
                                         .thenReturn(List.of(buildBlScore("")));
-                        Score existing = Score.builder().id(UUID.randomUUID()).build();
+                        Score existing = Score.builder().id(UUID.randomUUID()).scoreNoMods(900000).build();
                         when(scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(STEAM_ID,
                                         difficulty.getId()))
                                         .thenReturn(Optional.of(existing));
@@ -186,7 +186,8 @@ class ScoreImportServiceTest {
                         when(scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(STEAM_ID,
                                         difficulty.getId()))
                                         .thenReturn(Optional.empty())
-                                        .thenReturn(Optional.of(Score.builder().id(UUID.randomUUID()).build()));
+                                        .thenReturn(Optional.of(Score.builder().id(UUID.randomUUID())
+                                                        .scoreNoMods(890000).build()));
                         when(playerImportService.ensurePlayerExists(STEAM_ID))
                                         .thenReturn(User.builder().id(STEAM_ID).name("Player").build());
 

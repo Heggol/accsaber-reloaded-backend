@@ -33,7 +33,7 @@ public final class PlatformScoreMapper {
         SubmitScoreRequest request = new SubmitScoreRequest();
         request.setUserId(userId);
         request.setMapDifficultyId(mapDifficultyId);
-        request.setScore(bl.getModifiedScore());
+        request.setScore(bl.getBaseScore());
         request.setScoreNoMods(bl.getBaseScore());
         request.setRank(bl.getRank());
         request.setRankWhenSet(bl.getRank());
@@ -59,7 +59,7 @@ public final class PlatformScoreMapper {
         SubmitScoreRequest request = new SubmitScoreRequest();
         request.setUserId(userId);
         request.setMapDifficultyId(mapDifficultyId);
-        request.setScore(ss.getModifiedScore());
+        request.setScore(ss.getBaseScore());
         request.setScoreNoMods(ss.getBaseScore());
         request.setRank(ss.getRank());
         request.setRankWhenSet(ss.getRank());

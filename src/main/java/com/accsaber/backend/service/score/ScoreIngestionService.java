@@ -20,6 +20,7 @@ import com.accsaber.backend.model.dto.platform.scoresaber.ScoreSaberScoreRespons
 import com.accsaber.backend.model.dto.request.score.SubmitScoreRequest;
 import com.accsaber.backend.model.entity.map.MapDifficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
+import com.accsaber.backend.model.entity.score.Score;
 import com.accsaber.backend.repository.map.MapDifficultyRepository;
 import com.accsaber.backend.repository.score.ScoreRepository;
 import com.accsaber.backend.service.infra.MetricsService;
@@ -147,9 +148,11 @@ public class ScoreIngestionService {
             ScheduledFuture<?> future = ingestionScheduler.schedule(() -> {
                 try {
                     pendingSsScores.remove(playKey);
-                    if (scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId())
-                            .isPresent()) {
-                        log.debug("Skipping delayed SS score for {} - active score already exists", playKey);
+                    Optional<Score> existingScore = scoreRepository
+                            .findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId());
+                    if (existingScore.isPresent()
+                            && existingScore.get().getScore().equals(ssScore.getModifiedScore())) {
+                        log.debug("Skipping delayed SS score for {} - identical score already exists", playKey);
                         return;
                     }
                     playerImportService.ensurePlayerExists(resolvedSteamId);

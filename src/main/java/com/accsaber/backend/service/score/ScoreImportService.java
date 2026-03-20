@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,7 @@ import com.accsaber.backend.model.entity.map.MapDifficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
 import com.accsaber.backend.model.entity.milestone.Milestone;
 import com.accsaber.backend.model.entity.milestone.MilestoneSet;
+import com.accsaber.backend.model.entity.score.Score;
 import com.accsaber.backend.repository.map.MapDifficultyRepository;
 import com.accsaber.backend.repository.score.ScoreRepository;
 import com.accsaber.backend.repository.user.UserRepository;
@@ -419,8 +421,10 @@ public class ScoreImportService {
                 return null;
             Long steamId = duplicateUserService.resolvePrimaryUserId(
                     Long.parseLong(blScore.getPlayer().getId()));
-            if (scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId())
-                    .isPresent()) {
+            Optional<Score> existingScore = scoreRepository
+                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
+            if (existingScore.isPresent()
+                    && existingScore.get().getScore().equals(blScore.getModifiedScore())) {
                 return null;
             }
             playerImportService.ensurePlayerExists(steamId);
@@ -451,8 +455,10 @@ public class ScoreImportService {
                 return null;
             Long steamId = duplicateUserService.resolvePrimaryUserId(
                     Long.parseLong(ssScore.getLeaderboardPlayerInfo().getId()));
-            if (scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId())
-                    .isPresent()) {
+            Optional<Score> existingScore = scoreRepository
+                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
+            if (existingScore.isPresent()
+                    && existingScore.get().getScore().equals(ssScore.getModifiedScore())) {
                 return null;
             }
             playerImportService.ensurePlayerExists(steamId);

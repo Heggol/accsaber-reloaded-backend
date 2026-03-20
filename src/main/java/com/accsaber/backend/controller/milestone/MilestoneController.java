@@ -55,6 +55,12 @@ public class MilestoneController {
         return ResponseEntity.ok(milestoneService.findById(id));
     }
 
+    @Operation(summary = "List all milestones in a set")
+    @GetMapping("/milestones/sets/{setId}/milestones")
+    public ResponseEntity<List<MilestoneResponse>> getMilestonesBySet(@PathVariable UUID setId) {
+        return ResponseEntity.ok(milestoneService.findBySet(setId));
+    }
+
     @Operation(summary = "List all level thresholds")
     @GetMapping("/levels")
     public ResponseEntity<List<LevelThreshold>> listLevels() {

@@ -16,7 +16,19 @@ public interface UserMilestoneLinkRepository extends JpaRepository<UserMilestone
 
         List<UserMilestoneLink> findByUser_Id(Long userId);
 
+        List<UserMilestoneLink> findByUser_IdAndMilestone_IdIn(Long userId, List<UUID> milestoneIds);
+
         List<UserMilestoneLink> findByUser_IdAndCompletedTrue(Long userId);
+
+        @Query("""
+                        SELECT uml FROM UserMilestoneLink uml
+                        JOIN FETCH uml.milestone m
+                        JOIN FETCH m.milestoneSet
+                        LEFT JOIN FETCH m.category
+                        WHERE uml.user.id = :userId AND uml.completed = true AND m.active = true AND m.status = 'ACTIVE'
+                        ORDER BY uml.completedAt DESC
+                        """)
+        List<UserMilestoneLink> findCompletedByUserWithMilestoneDetails(@Param("userId") Long userId);
 
         @Query("""
                         SELECT COUNT(uml) FROM UserMilestoneLink uml

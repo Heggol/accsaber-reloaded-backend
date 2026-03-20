@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.accsaber.backend.exception.ConflictException;
 import com.accsaber.backend.exception.ResourceNotFoundException;
 import com.accsaber.backend.model.dto.request.milestone.CreateMilestoneRequest;
 import com.accsaber.backend.model.dto.request.milestone.CreateMilestoneSetRequest;
@@ -26,6 +27,7 @@ import com.accsaber.backend.model.entity.map.MapDifficultyMilestoneLink;
 import com.accsaber.backend.model.entity.milestone.Milestone;
 import com.accsaber.backend.model.entity.milestone.MilestoneCompletionStats;
 import com.accsaber.backend.model.entity.milestone.MilestoneSet;
+import com.accsaber.backend.model.entity.milestone.MilestoneStatus;
 import com.accsaber.backend.model.entity.milestone.UserMilestoneLink;
 import com.accsaber.backend.model.entity.user.User;
 import com.accsaber.backend.repository.CategoryRepository;
@@ -58,7 +60,13 @@ public class MilestoneService {
     private final DuplicateUserService duplicateUserService;
 
     public Page<MilestoneResponse> findAllActive(UUID setId, UUID categoryId, String type, Pageable pageable) {
-        Page<Milestone> milestones = milestoneRepository.findAllActiveFiltered(setId, categoryId, type, pageable);
+        return findAllByStatus(setId, categoryId, type, MilestoneStatus.ACTIVE, pageable);
+    }
+
+    public Page<MilestoneResponse> findAllByStatus(UUID setId, UUID categoryId, String type,
+            MilestoneStatus status, Pageable pageable) {
+        Page<Milestone> milestones = milestoneRepository.findAllActiveFiltered(setId, categoryId, type, status,
+                pageable);
 
         Map<UUID, MilestoneCompletionStats> statsMap = completionStatsRepository.findAll().stream()
                 .collect(Collectors.toMap(MilestoneCompletionStats::getMilestoneId, Function.identity()));
@@ -67,10 +75,48 @@ public class MilestoneService {
     }
 
     public MilestoneResponse findById(UUID id) {
-        Milestone milestone = milestoneRepository.findByIdAndActiveTrue(id)
+        Milestone milestone = milestoneRepository.findByIdAndActiveTrueAndStatusActive(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Milestone", id));
         MilestoneCompletionStats stats = completionStatsRepository.findByMilestoneId(id).orElse(null);
         return toResponse(milestone, stats);
+    }
+
+    public List<MilestoneResponse> findBySet(UUID setId) {
+        milestoneSetRepository.findByIdAndActiveTrue(setId)
+                .orElseThrow(() -> new ResourceNotFoundException("MilestoneSet", setId));
+        List<Milestone> milestones = milestoneRepository.findByMilestoneSet_IdAndActiveTrueAndStatus(setId,
+                MilestoneStatus.ACTIVE);
+        Map<UUID, MilestoneCompletionStats> statsMap = completionStatsRepository.findAll().stream()
+                .collect(Collectors.toMap(MilestoneCompletionStats::getMilestoneId, Function.identity()));
+        return milestones.stream().map(m -> toResponse(m, statsMap.get(m.getId()))).toList();
+    }
+
+    public List<UserMilestoneProgressResponse> findCompletedByUser(Long userId) {
+        Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
+        List<UserMilestoneLink> completedLinks = userMilestoneLinkRepository
+                .findCompletedByUserWithMilestoneDetails(resolved);
+        Map<UUID, MilestoneCompletionStats> statsMap = completionStatsRepository.findAll().stream()
+                .collect(Collectors.toMap(MilestoneCompletionStats::getMilestoneId, Function.identity()));
+
+        return completedLinks.stream().map(link -> {
+            Milestone m = link.getMilestone();
+            MilestoneCompletionStats stats = statsMap.get(m.getId());
+            return UserMilestoneProgressResponse.builder()
+                    .milestoneId(m.getId())
+                    .title(m.getTitle())
+                    .description(m.getDescription())
+                    .type(m.getType())
+                    .tier(m.getTier().name())
+                    .xp(m.getXp())
+                    .targetValue(m.getTargetValue())
+                    .progress(link.getProgress())
+                    .completed(true)
+                    .completedAt(link.getCompletedAt())
+                    .completionPercentage(stats != null ? stats.getCompletionPercentage() : BigDecimal.ZERO)
+                    .setId(m.getMilestoneSet().getId())
+                    .categoryId(m.getCategory() != null ? m.getCategory().getId() : null)
+                    .build();
+        }).toList();
     }
 
     public Page<MilestoneSetResponse> findAllSets(Pageable pageable) {
@@ -80,7 +126,8 @@ public class MilestoneService {
 
     public Page<UserMilestoneProgressResponse> findUserProgress(Long userId, Pageable pageable) {
         Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
-        Page<Milestone> allActive = milestoneRepository.findAllActiveFiltered(null, null, null, pageable);
+        Page<Milestone> allActive = milestoneRepository.findAllActiveFiltered(null, null, null, MilestoneStatus.ACTIVE,
+                pageable);
         List<UserMilestoneLink> userLinks = userMilestoneLinkRepository.findByUser_Id(resolved);
         Map<UUID, UserMilestoneLink> linkMap = userLinks.stream()
                 .collect(Collectors.toMap(l -> l.getMilestone().getId(), Function.identity()));
@@ -152,6 +199,40 @@ public class MilestoneService {
     }
 
     @Transactional
+    public MilestoneResponse activateMilestone(UUID id) {
+        Milestone milestone = milestoneRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Milestone", id));
+        if (milestone.getStatus() == MilestoneStatus.ACTIVE) {
+            throw new ConflictException("Milestone is already active: " + id);
+        }
+        milestone.setStatus(MilestoneStatus.ACTIVE);
+        Milestone saved = milestoneRepository.save(milestone);
+        return toResponse(saved, null);
+    }
+
+    @Transactional
+    public List<MilestoneResponse> activateMilestones(List<UUID> ids) {
+        List<Milestone> milestones = milestoneRepository.findAllActiveByIdIn(ids);
+        if (milestones.size() != ids.size()) {
+            List<UUID> found = milestones.stream().map(Milestone::getId).toList();
+            List<UUID> missing = ids.stream().filter(id -> !found.contains(id)).toList();
+            throw new ResourceNotFoundException("Milestones not found: " + missing);
+        }
+        List<UUID> alreadyActive = milestones.stream()
+                .filter(m -> m.getStatus() == MilestoneStatus.ACTIVE)
+                .map(Milestone::getId)
+                .toList();
+        if (!alreadyActive.isEmpty()) {
+            throw new ConflictException("Milestones already active: " + alreadyActive);
+        }
+        for (Milestone milestone : milestones) {
+            milestone.setStatus(MilestoneStatus.ACTIVE);
+        }
+        List<Milestone> saved = milestoneRepository.saveAll(milestones);
+        return saved.stream().map(m -> toResponse(m, null)).toList();
+    }
+
+    @Transactional
     public void deactivateMilestone(UUID id) {
         Milestone milestone = milestoneRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Milestone", id));
@@ -182,6 +263,13 @@ public class MilestoneService {
         Milestone milestone = milestoneRepository.findByIdAndActiveTrue(milestoneId)
                 .orElseThrow(() -> new ResourceNotFoundException("Milestone", milestoneId));
         createMapDifficultyLinks(milestone, mapDifficultyIds);
+    }
+
+    @Transactional
+    public void removeMapDifficultyLinks(UUID milestoneId, List<UUID> mapDifficultyIds) {
+        milestoneRepository.findByIdAndActiveTrue(milestoneId)
+                .orElseThrow(() -> new ResourceNotFoundException("Milestone", milestoneId));
+        mapDifficultyMilestoneLinkRepository.deleteByMilestone_IdAndMapDifficulty_IdIn(milestoneId, mapDifficultyIds);
     }
 
     private void createMapDifficultyLinks(Milestone milestone, List<UUID> mapDifficultyIds) {
@@ -215,6 +303,7 @@ public class MilestoneService {
                 .querySpec(m.getQuerySpec())
                 .targetValue(m.getTargetValue())
                 .comparison(m.getComparison())
+                .status(m.getStatus().name())
                 .completionPercentage(stats != null ? stats.getCompletionPercentage() : BigDecimal.ZERO)
                 .completions(stats != null ? stats.getCompletions() : 0L)
                 .totalPlayers(stats != null ? stats.getTotalPlayers() : 0L)

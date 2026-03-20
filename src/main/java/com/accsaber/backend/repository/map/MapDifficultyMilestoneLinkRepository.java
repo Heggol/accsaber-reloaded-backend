@@ -16,4 +16,6 @@ public interface MapDifficultyMilestoneLinkRepository extends JpaRepository<MapD
     boolean existsByMilestone_Id(UUID milestoneId);
 
     boolean existsByMapDifficulty_IdAndMilestone_Id(UUID mapDifficultyId, UUID milestoneId);
+
+    void deleteByMilestone_IdAndMapDifficulty_IdIn(UUID milestoneId, List<UUID> mapDifficultyIds);
 }

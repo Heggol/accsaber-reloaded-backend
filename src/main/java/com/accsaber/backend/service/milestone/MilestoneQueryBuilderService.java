@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ import com.accsaber.backend.model.dto.response.milestone.MilestoneSchemaResponse
 import com.accsaber.backend.model.dto.response.milestone.MilestoneSchemaResponse.ColumnInfo;
 import com.accsaber.backend.model.entity.map.Difficulty;
 import com.accsaber.backend.model.entity.map.MapDifficultyStatus;
+import com.accsaber.backend.model.entity.milestone.Milestone;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -510,6 +513,158 @@ public class MilestoneQueryBuilderService {
         if (result instanceof Number n)
             return BigDecimal.valueOf(n.doubleValue());
         return new BigDecimal(result.toString());
+    }
+
+    private record BatchKey(String fromTable, UUID categoryId, String filterSignature) {
+    }
+
+    private record SelectExpr(String function, String column) {
+    }
+
+    public Map<UUID, BigDecimal> evaluateBatch(List<Milestone> milestones, Long userId) {
+        if (milestones.isEmpty())
+            return Map.of();
+        if (milestones.size() == 1) {
+            Milestone m = milestones.get(0);
+            UUID catId = m.getCategory() != null ? m.getCategory().getId() : null;
+            BigDecimal result = evaluate(m.getQuerySpec(), userId, catId);
+            return Map.of(m.getId(), result);
+        }
+
+        Map<BatchKey, List<Milestone>> groups = new LinkedHashMap<>();
+        for (Milestone m : milestones) {
+            UUID catId = m.getCategory() != null ? m.getCategory().getId() : null;
+            String filterSig = computeFilterSignature(m.getQuerySpec().filters());
+            BatchKey key = new BatchKey(m.getQuerySpec().from(), catId, filterSig);
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+        }
+
+        Map<UUID, BigDecimal> results = new HashMap<>();
+        for (var entry : groups.entrySet()) {
+            results.putAll(evaluateGroup(entry.getKey(), entry.getValue(), userId));
+        }
+        return results;
+    }
+
+    private Map<UUID, BigDecimal> evaluateGroup(BatchKey key, List<Milestone> milestones, Long userId) {
+        TableConfig table = TABLE_CONFIG.get(key.fromTable());
+        Map<String, ColumnDef> columns = COLUMN_ALLOWLIST.get(key.fromTable());
+
+        Map<SelectExpr, List<UUID>> selectToMilestoneIds = new LinkedHashMap<>();
+        for (Milestone m : milestones) {
+            SelectExpr expr = new SelectExpr(
+                    m.getQuerySpec().select().function().toUpperCase(),
+                    m.getQuerySpec().select().column());
+            selectToMilestoneIds.computeIfAbsent(expr, k -> new ArrayList<>()).add(m.getId());
+        }
+
+        List<SelectExpr> orderedSelects = new ArrayList<>(selectToMilestoneIds.keySet());
+        List<String> selectClauses = new ArrayList<>();
+        for (SelectExpr expr : orderedSelects) {
+            ColumnDef colDef = columns.get(expr.column());
+            selectClauses.add(buildSelectClause(expr.function(), colDef.jpqlExpr()));
+        }
+
+        MilestoneQuerySpec referenceSpec = milestones.get(0).getQuerySpec();
+
+        List<String> conditions = new ArrayList<>();
+        if (table.userIdPath() != null) {
+            conditions.add(table.userIdPath() + " = :userId");
+        }
+        if (key.categoryId() != null && table.categoryIdPath() != null) {
+            conditions.add(table.categoryIdPath() + " = :categoryId");
+        }
+        if (table.rankedStatusPath() != null) {
+            conditions.add(table.rankedStatusPath() + " = :rankedStatus");
+        }
+
+        AtomicInteger paramCounter = new AtomicInteger(0);
+        List<Object[]> extraParams = new ArrayList<>();
+        List<FilterSpec> filters = referenceSpec.filters() != null ? referenceSpec.filters() : List.of();
+        for (FilterSpec filter : filters) {
+            ColumnDef colDef = columns.get(filter.column());
+            if (filter.subquery() != null) {
+                String subJpql = buildSubqueryJpql(filter.subquery(), extraParams, paramCounter, 1);
+                conditions.add(colDef.jpqlExpr() + " " + filter.operator() + " (" + subJpql + ")");
+            } else {
+                String paramName = "p" + paramCounter.getAndIncrement();
+                conditions.add(colDef.jpqlExpr() + " " + filter.operator() + " :" + paramName);
+                extraParams.add(new Object[] { paramName, coerce(filter.value(), colDef) });
+            }
+        }
+
+        StringBuilder jpql = new StringBuilder()
+                .append("SELECT ").append(String.join(", ", selectClauses))
+                .append(" FROM ").append(table.entity()).append(" ").append(table.alias());
+        if (!conditions.isEmpty()) {
+            jpql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+
+        Query query = entityManager.createQuery(jpql.toString());
+        if (table.userIdPath() != null) {
+            query.setParameter("userId", userId);
+        }
+        if (key.categoryId() != null && table.categoryIdPath() != null) {
+            query.setParameter("categoryId", key.categoryId());
+        }
+        if (table.rankedStatusPath() != null) {
+            query.setParameter("rankedStatus", MapDifficultyStatus.RANKED);
+        }
+        for (Object[] binding : extraParams) {
+            query.setParameter((String) binding[0], binding[1]);
+        }
+
+        Object rawResult = query.getSingleResult();
+
+        Map<UUID, BigDecimal> results = new HashMap<>();
+        if (orderedSelects.size() == 1) {
+            BigDecimal value = toBigDecimal(rawResult);
+            for (UUID milestoneId : selectToMilestoneIds.get(orderedSelects.get(0))) {
+                results.put(milestoneId, value);
+            }
+        } else {
+            Object[] row = (Object[]) rawResult;
+            for (int i = 0; i < orderedSelects.size(); i++) {
+                BigDecimal value = toBigDecimal(row[i]);
+                for (UUID milestoneId : selectToMilestoneIds.get(orderedSelects.get(i))) {
+                    results.put(milestoneId, value);
+                }
+            }
+        }
+        return results;
+    }
+
+    private String computeFilterSignature(List<FilterSpec> filters) {
+        if (filters == null || filters.isEmpty())
+            return "";
+        List<FilterSpec> sorted = filters.stream()
+                .sorted(Comparator.comparing(FilterSpec::column))
+                .toList();
+        StringBuilder sb = new StringBuilder();
+        for (FilterSpec f : sorted) {
+            sb.append(f.column()).append('|').append(f.operator()).append('|');
+            if (f.subquery() != null) {
+                sb.append("SUB(").append(f.subquery().from()).append(',')
+                        .append(f.subquery().select().function()).append(',')
+                        .append(f.subquery().select().column()).append(',')
+                        .append(computeFilterSignature(f.subquery().filters()))
+                        .append(')');
+            } else {
+                sb.append(f.value());
+            }
+            sb.append(';');
+        }
+        return sb.toString();
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null)
+            return BigDecimal.ZERO;
+        if (value instanceof BigDecimal bd)
+            return bd;
+        if (value instanceof Number n)
+            return BigDecimal.valueOf(n.doubleValue());
+        return new BigDecimal(value.toString());
     }
 
     private String buildSelectClause(String fn, String expr) {

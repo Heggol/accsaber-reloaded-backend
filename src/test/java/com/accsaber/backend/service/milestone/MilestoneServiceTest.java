@@ -38,6 +38,7 @@ import com.accsaber.backend.model.dto.response.milestone.UserMilestoneProgressRe
 import com.accsaber.backend.model.entity.milestone.Milestone;
 import com.accsaber.backend.model.entity.milestone.MilestoneCompletionStats;
 import com.accsaber.backend.model.entity.milestone.MilestoneSet;
+import com.accsaber.backend.model.entity.milestone.MilestoneStatus;
 import com.accsaber.backend.model.entity.milestone.MilestoneTier;
 import com.accsaber.backend.model.entity.user.User;
 import com.accsaber.backend.repository.CategoryRepository;
@@ -115,7 +116,8 @@ class MilestoneServiceTest {
 
         @Test
         void noFilter_returnsAllActive() {
-            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(milestone), defaultPageable, 1));
             when(completionStatsRepository.findAll()).thenReturn(List.of());
 
@@ -128,14 +130,16 @@ class MilestoneServiceTest {
         @Test
         void setIdFilter_delegatesToRepository() {
             UUID setId = set.getId();
-            when(milestoneRepository.findAllActiveFiltered(eq(setId), isNull(), isNull(), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(eq(setId), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(milestone), defaultPageable, 1));
             when(completionStatsRepository.findAll()).thenReturn(List.of());
 
             Page<MilestoneResponse> result = service.findAllActive(setId, null, null, defaultPageable);
 
             assertThat(result.getContent()).hasSize(1);
-            verify(milestoneRepository).findAllActiveFiltered(eq(setId), isNull(), isNull(), eq(defaultPageable));
+            verify(milestoneRepository).findAllActiveFiltered(eq(setId), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable));
         }
 
         @Test
@@ -152,7 +156,8 @@ class MilestoneServiceTest {
                     .comparison("GTE")
                     .build();
 
-            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), eq("achievement"), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), eq("achievement"),
+                    eq(MilestoneStatus.ACTIVE), eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(achievement), defaultPageable, 1));
             when(completionStatsRepository.findAll()).thenReturn(List.of());
 
@@ -165,7 +170,8 @@ class MilestoneServiceTest {
         @Test
         void completionStatsAreMergedIntoResponse() {
             MilestoneCompletionStats stats = buildStats(milestone.getId(), 50L, 200L, new BigDecimal("25.00"));
-            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(milestone), defaultPageable, 1));
             when(completionStatsRepository.findAll()).thenReturn(List.of(stats));
 
@@ -183,7 +189,7 @@ class MilestoneServiceTest {
 
         @Test
         void found_returnsResponse() {
-            when(milestoneRepository.findByIdAndActiveTrue(milestone.getId()))
+            when(milestoneRepository.findByIdAndActiveTrueAndStatusActive(milestone.getId()))
                     .thenReturn(Optional.of(milestone));
             when(completionStatsRepository.findByMilestoneId(milestone.getId()))
                     .thenReturn(Optional.empty());
@@ -199,7 +205,7 @@ class MilestoneServiceTest {
         @Test
         void notFound_throwsResourceNotFoundException() {
             UUID id = UUID.randomUUID();
-            when(milestoneRepository.findByIdAndActiveTrue(id)).thenReturn(Optional.empty());
+            when(milestoneRepository.findByIdAndActiveTrueAndStatusActive(id)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.findById(id))
                     .isInstanceOf(ResourceNotFoundException.class);
@@ -350,7 +356,8 @@ class MilestoneServiceTest {
                     .completedAt(java.time.Instant.now())
                     .build();
 
-            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(milestone), defaultPageable, 1));
             when(userMilestoneLinkRepository.findByUser_Id(42L)).thenReturn(List.of(link));
             when(completionStatsRepository.findAll()).thenReturn(List.of());
@@ -364,7 +371,8 @@ class MilestoneServiceTest {
 
         @Test
         void noLink_showsCompletedFalseAndNullProgress() {
-            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(defaultPageable)))
+            when(milestoneRepository.findAllActiveFiltered(isNull(), isNull(), isNull(), eq(MilestoneStatus.ACTIVE),
+                    eq(defaultPageable)))
                     .thenReturn(new PageImpl<>(List.of(milestone), defaultPageable, 1));
             when(userMilestoneLinkRepository.findByUser_Id(99L)).thenReturn(List.of());
             when(completionStatsRepository.findAll()).thenReturn(List.of());

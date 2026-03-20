@@ -83,6 +83,11 @@ public class Milestone {
     private boolean blExclusive = false;
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private MilestoneStatus status = MilestoneStatus.DRAFT;
+
+    @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
 

@@ -5,8 +5,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,17 +52,22 @@ public class MilestoneEvaluationService {
         if (uncompleted.isEmpty())
             return new EvaluationResult(List.of(), List.of());
 
-        List<Milestone> newlyCompleted = new ArrayList<>();
         boolean scoreIsFromBl = newScore.getBlScoreId() != null;
+        List<Milestone> toEvaluate = uncompleted.stream()
+                .filter(m -> !m.isBlExclusive() || scoreIsFromBl)
+                .toList();
+        if (toEvaluate.isEmpty())
+            return new EvaluationResult(List.of(), List.of());
 
-        for (Milestone milestone : uncompleted) {
-            if (milestone.isBlExclusive() && !scoreIsFromBl)
-                continue;
-            UUID milestoneCategoryId = milestone.getCategory() != null ? milestone.getCategory().getId() : null;
-            BigDecimal currentValue = queryBuilderService.evaluate(milestone.getQuerySpec(), userId,
-                    milestoneCategoryId);
+        Map<UUID, BigDecimal> batchResults = queryBuilderService.evaluateBatch(toEvaluate, userId);
+        Map<UUID, UserMilestoneLink> linkMap = loadLinkMap(userId, toEvaluate);
 
-            UserMilestoneLink link = getOrCreateLink(userId, milestone);
+        List<Milestone> newlyCompleted = new ArrayList<>();
+        List<UserMilestoneLink> linksToSave = new ArrayList<>();
+
+        for (Milestone milestone : toEvaluate) {
+            BigDecimal currentValue = batchResults.getOrDefault(milestone.getId(), BigDecimal.ZERO);
+            UserMilestoneLink link = getOrCreateFromMap(linkMap, userId, milestone);
             link.setProgress(currentValue);
 
             if (isCompleted(milestone, currentValue) && !link.isCompleted()) {
@@ -69,8 +77,10 @@ public class MilestoneEvaluationService {
                 newlyCompleted.add(milestone);
             }
 
-            userMilestoneLinkRepository.save(link);
+            linksToSave.add(link);
         }
+
+        userMilestoneLinkRepository.saveAll(linksToSave);
 
         List<MilestoneSet> completedSets = claimEligibleSetBonuses(userId, newlyCompleted);
         return new EvaluationResult(newlyCompleted, completedSets);
@@ -110,13 +120,18 @@ public class MilestoneEvaluationService {
     @Transactional
     public EvaluationResult evaluateAllForUser(Long userId) {
         List<Milestone> uncompleted = milestoneRepository.findActiveUncompletedForUser(userId);
+        if (uncompleted.isEmpty())
+            return new EvaluationResult(List.of(), List.of());
+
+        Map<UUID, BigDecimal> batchResults = queryBuilderService.evaluateBatch(uncompleted, userId);
+        Map<UUID, UserMilestoneLink> linkMap = loadLinkMap(userId, uncompleted);
+
         List<Milestone> newlyCompleted = new ArrayList<>();
+        List<UserMilestoneLink> linksToSave = new ArrayList<>();
 
         for (Milestone milestone : uncompleted) {
-            UUID categoryId = milestone.getCategory() != null ? milestone.getCategory().getId() : null;
-            BigDecimal currentValue = queryBuilderService.evaluate(milestone.getQuerySpec(), userId, categoryId);
-
-            UserMilestoneLink link = getOrCreateLink(userId, milestone);
+            BigDecimal currentValue = batchResults.getOrDefault(milestone.getId(), BigDecimal.ZERO);
+            UserMilestoneLink link = getOrCreateFromMap(linkMap, userId, milestone);
             link.setProgress(currentValue);
 
             if (isCompleted(milestone, currentValue) && !link.isCompleted()) {
@@ -125,11 +140,30 @@ public class MilestoneEvaluationService {
                 newlyCompleted.add(milestone);
             }
 
-            userMilestoneLinkRepository.save(link);
+            linksToSave.add(link);
         }
+
+        userMilestoneLinkRepository.saveAll(linksToSave);
 
         List<MilestoneSet> completedSets = claimEligibleSetBonuses(userId, newlyCompleted);
         return new EvaluationResult(newlyCompleted, completedSets);
+    }
+
+    private Map<UUID, UserMilestoneLink> loadLinkMap(Long userId, List<Milestone> milestones) {
+        List<UUID> milestoneIds = milestones.stream().map(Milestone::getId).toList();
+        return userMilestoneLinkRepository.findByUser_IdAndMilestone_IdIn(userId, milestoneIds).stream()
+                .collect(Collectors.toMap(l -> l.getMilestone().getId(), Function.identity()));
+    }
+
+    private UserMilestoneLink getOrCreateFromMap(Map<UUID, UserMilestoneLink> linkMap, Long userId,
+            Milestone milestone) {
+        UserMilestoneLink existing = linkMap.get(milestone.getId());
+        if (existing != null)
+            return existing;
+        return UserMilestoneLink.builder()
+                .user(userRepository.getReferenceById(userId))
+                .milestone(milestone)
+                .build();
     }
 
     private List<MilestoneSet> claimEligibleSetBonuses(Long userId, List<Milestone> newlyCompleted) {

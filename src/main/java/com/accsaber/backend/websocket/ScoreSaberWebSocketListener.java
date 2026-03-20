@@ -57,9 +57,9 @@ public class ScoreSaberWebSocketListener extends WebSocketClient {
             if (scoreData == null || scoreData.getLeaderboardPlayerInfo() == null || leaderboard == null) {
                 return;
             }
-            Long steamId = Long.parseLong(scoreData.getLeaderboardPlayerInfo().getId());
+            Long userId = Long.parseLong(scoreData.getLeaderboardPlayerInfo().getId());
             String ssLeaderboardId = String.valueOf(leaderboard.getId());
-            scoreIngestionService.handleScoreSaberScore(scoreData, steamId, ssLeaderboardId);
+            scoreIngestionService.handleScoreSaberScore(scoreData, userId, ssLeaderboardId);
         } catch (Exception e) {
             log.error("Error processing SS WebSocket message: {}", e.getMessage());
         }

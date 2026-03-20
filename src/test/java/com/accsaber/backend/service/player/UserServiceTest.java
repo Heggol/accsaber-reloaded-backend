@@ -51,7 +51,7 @@ class UserServiceTest {
     }
 
     @Nested
-    class FindBySteamId {
+    class FindByUserId {
 
         @Test
         void returnsUserResponse() {
@@ -65,7 +65,7 @@ class UserServiceTest {
 
             when(userRepository.findByIdAndActiveTrue(STEAM_ID)).thenReturn(Optional.of(user));
 
-            UserResponse response = userService.findBySteamId(STEAM_ID);
+            UserResponse response = userService.findByUserId(STEAM_ID);
 
             assertThat(response.getId()).isEqualTo(String.valueOf(STEAM_ID));
             assertThat(response.getName()).isEqualTo("TestPlayer");
@@ -76,20 +76,20 @@ class UserServiceTest {
         void throwsWhenNotFound() {
             when(userRepository.findByIdAndActiveTrue(STEAM_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.findBySteamId(STEAM_ID))
+            assertThatThrownBy(() -> userService.findByUserId(STEAM_ID))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }
 
     @Nested
-    class FindOptionalBySteamId {
+    class FindOptionalByUserId {
 
         @Test
         void returnsUser_whenExists() {
             User user = User.builder().id(STEAM_ID).name("Player").build();
             when(userRepository.findByIdAndActiveTrue(STEAM_ID)).thenReturn(Optional.of(user));
 
-            Optional<User> result = userService.findOptionalBySteamId(STEAM_ID);
+            Optional<User> result = userService.findOptionalByUserId(STEAM_ID);
 
             assertThat(result).isPresent();
             assertThat(result.get().getName()).isEqualTo("Player");
@@ -99,7 +99,7 @@ class UserServiceTest {
         void returnsEmpty_whenNotExists() {
             when(userRepository.findByIdAndActiveTrue(STEAM_ID)).thenReturn(Optional.empty());
 
-            Optional<User> result = userService.findOptionalBySteamId(STEAM_ID);
+            Optional<User> result = userService.findOptionalByUserId(STEAM_ID);
 
             assertThat(result).isEmpty();
         }

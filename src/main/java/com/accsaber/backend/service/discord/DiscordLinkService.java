@@ -34,8 +34,8 @@ public class DiscordLinkService {
             throw new ConflictException("Discord account is already linked", request.getDiscordId());
         }
 
-        String steamId = profileUrlResolver.resolve(request.getProfileUrl());
-        Long userId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(steamId));
+        String platformId = profileUrlResolver.resolve(request.getProfileUrl());
+        Long userId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(platformId));
 
         if (discordUserLinkRepository.existsByUserId(userId)) {
             throw new ConflictException("Player is already linked to a Discord account", userId);
@@ -84,8 +84,8 @@ public class DiscordLinkService {
         DiscordUserLink link = discordUserLinkRepository.findById(discordId)
                 .orElseThrow(() -> new ResourceNotFoundException("Discord link", discordId));
 
-        String steamId = profileUrlResolver.resolve(request.getProfileUrl());
-        Long newUserId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(steamId));
+        String platformId = profileUrlResolver.resolve(request.getProfileUrl());
+        Long newUserId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(platformId));
 
         if (!newUserId.equals(link.getUser().getId())
                 && discordUserLinkRepository.existsByUserId(newUserId)) {

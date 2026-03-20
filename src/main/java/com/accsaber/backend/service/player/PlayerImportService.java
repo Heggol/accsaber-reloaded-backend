@@ -25,17 +25,17 @@ public class PlayerImportService {
         private final ScoreSaberClient scoreSaberClient;
         private final UserService userService;
 
-        public User ensurePlayerExists(Long steamId) {
-                Optional<User> existing = userService.findOptionalBySteamId(steamId);
+        public User ensurePlayerExists(Long userId) {
+                Optional<User> existing = userService.findOptionalByUserId(userId);
                 if (existing.isPresent()) {
                         return existing.get();
                 }
 
-                String steamIdStr = String.valueOf(steamId);
+                String userIdStr = String.valueOf(userId);
                 CompletableFuture<Optional<BeatLeaderPlayerResponse>> blFuture = CompletableFuture
-                                .supplyAsync(() -> beatLeaderClient.getPlayer(steamIdStr));
+                                .supplyAsync(() -> beatLeaderClient.getPlayer(userIdStr));
                 CompletableFuture<Optional<ScoreSaberPlayerResponse>> ssFuture = CompletableFuture
-                                .supplyAsync(() -> scoreSaberClient.getPlayer(steamIdStr));
+                                .supplyAsync(() -> scoreSaberClient.getPlayer(userIdStr));
                 Optional<BeatLeaderPlayerResponse> blProfile = blFuture.join();
                 Optional<ScoreSaberPlayerResponse> ssProfile = ssFuture.join();
 
@@ -52,22 +52,22 @@ public class PlayerImportService {
                                 .or(() -> ssProfile.map(ScoreSaberPlayerResponse::getCountry))
                                 .orElse(null);
 
-                log.info("Creating new user {} ({})", name, steamId);
+                log.info("Creating new user {} ({})", name, userId);
                 try {
-                        return userService.createUser(steamId, name, avatarUrl, country);
+                        return userService.createUser(userId, name, avatarUrl, country);
                 } catch (ConflictException e) {
-                        return userService.findOptionalBySteamId(steamId)
-                                        .orElseThrow(() -> new ResourceNotFoundException("User", steamId));
+                        return userService.findOptionalByUserId(userId)
+                                        .orElseThrow(() -> new ResourceNotFoundException("User", userId));
                 }
         }
 
-        public void refreshPlayerProfile(Long steamId) {
-                String steamIdStr = String.valueOf(steamId);
-                Optional<ScoreSaberPlayerResponse> ssProfile = scoreSaberClient.getPlayer(steamIdStr);
-                Optional<BeatLeaderPlayerResponse> blProfile = beatLeaderClient.getPlayer(steamIdStr);
+        public void refreshPlayerProfile(Long userId) {
+                String userIdStr = String.valueOf(userId);
+                Optional<ScoreSaberPlayerResponse> ssProfile = scoreSaberClient.getPlayer(userIdStr);
+                Optional<BeatLeaderPlayerResponse> blProfile = beatLeaderClient.getPlayer(userIdStr);
 
                 if (ssProfile.isEmpty() && blProfile.isEmpty()) {
-                        log.warn("Both platforms returned 404 for player {}", steamId);
+                        log.warn("Both platforms returned 404 for player {}", userId);
                         return;
                 }
 
@@ -84,7 +84,7 @@ public class PlayerImportService {
                                 .or(() -> ssProfile.map(ScoreSaberPlayerResponse::getCountry))
                                 .orElse(null);
 
-                userService.updateProfile(steamId, name, avatarUrl, country);
-                log.debug("Refreshed profile for player {}", steamId);
+                userService.updateProfile(userId, name, avatarUrl, country);
+                log.debug("Refreshed profile for player {}", userId);
         }
 }

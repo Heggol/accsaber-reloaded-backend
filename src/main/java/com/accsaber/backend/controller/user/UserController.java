@@ -47,103 +47,103 @@ public class UserController {
     private final LevelService levelService;
     private final CampaignService campaignService;
 
-    @Operation(summary = "Get user profile", description = "Returns a player profile by Steam ID. Optionally include all category statistics.")
-    @GetMapping("/{steamId}")
+    @Operation(summary = "Get user profile", description = "Returns a player profile by user ID. Optionally include all category statistics.")
+    @GetMapping("/{userId}")
     public ResponseEntity<UserResponse> getUser(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam(defaultValue = "false") boolean statistics) {
-        UserResponse user = userService.findBySteamId(steamId);
+        UserResponse user = userService.findByUserId(userId);
         if (statistics) {
-            user = user.withStatistics(statisticsService.findAllByUser(steamId));
+            user = user.withStatistics(statisticsService.findAllByUser(userId));
         }
         return ResponseEntity.ok(user);
     }
 
     @Operation(summary = "Get user name history", description = "Returns a player's previous names, most recent first")
-    @GetMapping("/{steamId}/name-history")
-    public ResponseEntity<List<NameHistoryResponse>> getNameHistory(@PathVariable Long steamId) {
-        List<NameHistoryResponse> history = userService.getNameHistory(steamId).stream()
+    @GetMapping("/{userId}/name-history")
+    public ResponseEntity<List<NameHistoryResponse>> getNameHistory(@PathVariable Long userId) {
+        List<NameHistoryResponse> history = userService.getNameHistory(userId).stream()
                 .map(h -> new NameHistoryResponse(h.getName(), h.getChangedAt()))
                 .toList();
         return ResponseEntity.ok(history);
     }
 
     @Operation(summary = "Get all user category statistics", description = "Returns all active category statistics for a player")
-    @GetMapping("/{steamId}/statistics/all")
-    public ResponseEntity<List<UserCategoryStatisticsResponse>> getAllUserStatistics(@PathVariable Long steamId) {
-        return ResponseEntity.ok(statisticsService.findAllByUser(steamId));
+    @GetMapping("/{userId}/statistics/all")
+    public ResponseEntity<List<UserCategoryStatisticsResponse>> getAllUserStatistics(@PathVariable Long userId) {
+        return ResponseEntity.ok(statisticsService.findAllByUser(userId));
     }
 
     @Operation(summary = "Get user category statistics", description = "Returns active category statistics for a player by category code (tech_acc, standard_acc, true_acc) (defaults to 'overall')")
-    @GetMapping("/{steamId}/statistics")
+    @GetMapping("/{userId}/statistics")
     public ResponseEntity<UserCategoryStatisticsResponse> getUserStatistics(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam(defaultValue = "overall") String category) {
-        return ResponseEntity.ok(statisticsService.findByUserAndCategoryCode(steamId, category));
+        return ResponseEntity.ok(statisticsService.findByUserAndCategoryCode(userId, category));
     }
 
     @Operation(summary = "Get historic user category statistics", description = "Returns all versioned statistics for a player over a time range, sorted by time ascending. "
             + "Units: h (hours), d (days), w (weeks), mo (months)")
-    @GetMapping("/{steamId}/statistics/historic")
+    @GetMapping("/{userId}/statistics/historic")
     public ResponseEntity<List<UserCategoryStatisticsResponse>> getUserStatisticsHistoric(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam(defaultValue = "overall") String category,
             @RequestParam(defaultValue = "7") int amount,
             @RequestParam(defaultValue = "d") String unit) {
-        return ResponseEntity.ok(statisticsService.findHistoric(steamId, category, amount, unit));
+        return ResponseEntity.ok(statisticsService.findHistoric(userId, category, amount, unit));
     }
 
     @Operation(summary = "Get user stats diff", description = "Returns the difference between the most recent statistics and the last statistics before 24h ago. "
             + "Returns 204 No Content if no baseline exists (new player or no activity before 24h ago)")
-    @GetMapping("/{steamId}/stats-diff")
+    @GetMapping("/{userId}/stats-diff")
     public ResponseEntity<StatsDiffResponse> getStatsDiff(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam(defaultValue = "overall") String category) {
-        Optional<StatsDiffResponse> diff = statisticsService.computeStatsDiff(steamId, category);
+        Optional<StatsDiffResponse> diff = statisticsService.computeStatsDiff(userId, category);
         return diff.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @Operation(summary = "Get historic user scores", description = "Returns all versioned scores for a player on a specific map difficulty over a time range, sorted by time ascending. "
             + "Units: h (hours), d (days), w (weeks), mo (months)")
-    @GetMapping("/{steamId}/scores/historic")
+    @GetMapping("/{userId}/scores/historic")
     public ResponseEntity<List<ScoreResponse>> getUserScoresHistoric(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam UUID mapDifficultyId,
             @RequestParam(defaultValue = "7") int amount,
             @RequestParam(defaultValue = "d") String unit) {
-        return ResponseEntity.ok(scoreService.findHistoric(steamId, mapDifficultyId, amount, unit));
+        return ResponseEntity.ok(scoreService.findHistoric(userId, mapDifficultyId, amount, unit));
     }
 
     @Operation(summary = "Get user scores", description = "Paginated list of a player's active scores, optionally filtered by category and/or song name")
-    @GetMapping("/{steamId}/scores")
+    @GetMapping("/{userId}/scores")
     public ResponseEntity<Page<ScoreResponse>> getUserScores(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(required = false) String search,
             @PageableDefault(size = 20, sort = "ap", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(scoreService.findByUser(steamId, categoryId, search, pageable));
+        return ResponseEntity.ok(scoreService.findByUser(userId, categoryId, search, pageable));
     }
 
     @Operation(summary = "Get user milestone progress")
-    @GetMapping("/{steamId}/milestones")
+    @GetMapping("/{userId}/milestones")
     public ResponseEntity<Page<UserMilestoneProgressResponse>> getUserMilestones(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return ResponseEntity.ok(milestoneService.findUserProgress(steamId, pageable));
+        return ResponseEntity.ok(milestoneService.findUserProgress(userId, pageable));
     }
 
     @Operation(summary = "Get user level and XP")
-    @GetMapping("/{steamId}/level")
-    public ResponseEntity<LevelResponse> getUserLevel(@PathVariable Long steamId) {
-        var totalXp = userService.getTotalXp(steamId);
+    @GetMapping("/{userId}/level")
+    public ResponseEntity<LevelResponse> getUserLevel(@PathVariable Long userId) {
+        var totalXp = userService.getTotalXp(userId);
         return ResponseEntity.ok(levelService.calculateLevel(totalXp));
     }
 
     @Operation(summary = "Get user progress in a campaign")
-    @GetMapping("/{steamId}/campaigns/{campaignId}")
+    @GetMapping("/{userId}/campaigns/{campaignId}")
     public ResponseEntity<CampaignProgressResponse> getUserCampaignProgress(
-            @PathVariable Long steamId,
+            @PathVariable Long userId,
             @PathVariable UUID campaignId) {
-        return ResponseEntity.ok(campaignService.getUserProgress(steamId, campaignId));
+        return ResponseEntity.ok(campaignService.getUserProgress(userId, campaignId));
     }
 }

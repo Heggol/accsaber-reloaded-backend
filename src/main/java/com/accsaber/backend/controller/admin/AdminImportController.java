@@ -68,10 +68,10 @@ public class AdminImportController {
     }
 
     @Operation(summary = "Refresh a player's profile")
-    @PostMapping("/players/{steamId}/refresh")
-    public ResponseEntity<UserResponse> refreshPlayer(@PathVariable Long steamId) {
-        playerImportService.refreshPlayerProfile(steamId);
-        return ResponseEntity.ok(userService.findBySteamId(steamId));
+    @PostMapping("/players/{userId}/refresh")
+    public ResponseEntity<UserResponse> refreshPlayer(@PathVariable Long userId) {
+        playerImportService.refreshPlayerProfile(userId);
+        return ResponseEntity.ok(userService.findByUserId(userId));
     }
 
     @Operation(summary = "Refresh all player profiles")

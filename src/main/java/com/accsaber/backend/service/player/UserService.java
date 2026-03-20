@@ -26,42 +26,42 @@ public class UserService {
     private final UserNameHistoryRepository userNameHistoryRepository;
     private final DuplicateUserService duplicateUserService;
 
-    public UserResponse findBySteamId(Long steamId) {
-        Long resolved = duplicateUserService.resolvePrimaryUserId(steamId);
+    public UserResponse findByUserId(Long userId) {
+        Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
         User user = userRepository.findByIdAndActiveTrue(resolved)
                 .orElseThrow(() -> new ResourceNotFoundException("User", resolved));
         return toResponse(user);
     }
 
-    public Optional<User> findOptionalBySteamId(Long steamId) {
-        Long resolved = duplicateUserService.resolvePrimaryUserId(steamId);
+    public Optional<User> findOptionalByUserId(Long userId) {
+        Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
         return userRepository.findByIdAndActiveTrue(resolved);
     }
 
     @Transactional
-    public User createUser(Long steamId, String name, String avatarUrl, String country) {
-        if (userRepository.findByIdAndActiveTrue(steamId).isPresent()) {
-            throw new ConflictException("User", steamId);
+    public User createUser(Long userId, String name, String avatarUrl, String country) {
+        if (userRepository.findByIdAndActiveTrue(userId).isPresent()) {
+            throw new ConflictException("User", userId);
         }
         return userRepository.save(User.builder()
-                .id(steamId)
+                .id(userId)
                 .name(name)
                 .avatarUrl(avatarUrl)
                 .country(country)
                 .build());
     }
 
-    public BigDecimal getTotalXp(Long steamId) {
-        Long resolved = duplicateUserService.resolvePrimaryUserId(steamId);
+    public BigDecimal getTotalXp(Long userId) {
+        Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
         User user = userRepository.findByIdAndActiveTrue(resolved)
                 .orElseThrow(() -> new ResourceNotFoundException("User", resolved));
         return user.getTotalXp();
     }
 
     @Transactional
-    public User updateProfile(Long steamId, String name, String avatarUrl, String country) {
-        User user = userRepository.findByIdAndActiveTrue(steamId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", steamId));
+    public User updateProfile(Long userId, String name, String avatarUrl, String country) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         if (name != null && !name.equals(user.getName())) {
             userNameHistoryRepository.save(UserNameHistory.builder()
                     .user(user)
@@ -76,8 +76,8 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public List<UserNameHistory> getNameHistory(Long steamId) {
-        Long resolved = duplicateUserService.resolvePrimaryUserId(steamId);
+    public List<UserNameHistory> getNameHistory(Long userId) {
+        Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
         return userNameHistoryRepository.findByUser_IdOrderByChangedAtDesc(resolved);
     }
 

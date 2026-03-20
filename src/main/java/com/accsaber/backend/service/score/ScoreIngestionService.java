@@ -104,9 +104,9 @@ public class ScoreIngestionService {
                 return;
             MapDifficulty difficulty = diffOpt.get();
 
-            Long steamId = duplicateUserService.resolvePrimaryUserId(
+            Long userId = duplicateUserService.resolvePrimaryUserId(
                     Long.parseLong(blScore.getPlayer().getId()));
-            String playKey = steamId + "_" + difficulty.getId();
+            String playKey = userId + "_" + difficulty.getId();
 
             ScheduledFuture<?> pending = pendingSsScores.remove(playKey);
             if (pending != null) {
@@ -114,19 +114,19 @@ public class ScoreIngestionService {
                 log.debug("Cancelled pending SS score for play key {}", playKey);
             }
 
-            playerImportService.ensurePlayerExists(steamId);
+            playerImportService.ensurePlayerExists(userId);
             SubmitScoreRequest request = PlatformScoreMapper.fromBeatLeader(
-                    blScore, difficulty.getId(), steamId, modifierCacheService.getModifierCodeToId());
+                    blScore, difficulty.getId(), userId, modifierCacheService.getModifierCodeToId());
             metricsService.getScoreProcessingTimer().record(() -> scoreService.submit(request));
             metricsService.getBlScoresIngested().increment();
-            log.info("Ingested BL score for player {} on difficulty {}", steamId, difficulty.getId());
+            log.info("Ingested BL score for player {} on difficulty {}", userId, difficulty.getId());
         } catch (Exception e) {
             log.error("Error handling BL score: {}", e.getMessage());
         }
     }
 
-    public void handleScoreSaberScore(ScoreSaberScoreResponse ssScore, Long steamId, String ssLeaderboardId) {
-        Long resolvedSteamId = duplicateUserService.resolvePrimaryUserId(steamId);
+    public void handleScoreSaberScore(ScoreSaberScoreResponse ssScore, Long userId, String ssLeaderboardId) {
+        Long resolvedUserId = duplicateUserService.resolvePrimaryUserId(userId);
         if (!rankedSsIds.contains(ssLeaderboardId)) {
             return;
         }
@@ -143,25 +143,25 @@ public class ScoreIngestionService {
                 return;
             MapDifficulty difficulty = diffOpt.get();
 
-            String playKey = resolvedSteamId + "_" + difficulty.getId();
+            String playKey = resolvedUserId + "_" + difficulty.getId();
 
             int delaySeconds = properties.getSsWaitForBlSeconds();
             ScheduledFuture<?> future = ingestionScheduler.schedule(() -> {
                 try {
                     pendingSsScores.remove(playKey);
                     Optional<Score> existingScore = scoreRepository
-                            .findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedSteamId, difficulty.getId());
+                            .findByUser_IdAndMapDifficulty_IdAndActiveTrue(resolvedUserId, difficulty.getId());
                     if (existingScore.isPresent()
                             && Objects.equals(existingScore.get().getScoreNoMods(), ssScore.getBaseScore())) {
                         log.debug("Skipping delayed SS score for {} - identical score already exists", playKey);
                         return;
                     }
-                    playerImportService.ensurePlayerExists(resolvedSteamId);
+                    playerImportService.ensurePlayerExists(resolvedUserId);
                     SubmitScoreRequest request = PlatformScoreMapper.fromScoreSaber(
-                            ssScore, difficulty.getId(), resolvedSteamId, modifierCacheService.getModifierCodeToId());
+                            ssScore, difficulty.getId(), resolvedUserId, modifierCacheService.getModifierCodeToId());
                     metricsService.getScoreProcessingTimer().record(() -> scoreService.submit(request));
                     metricsService.getSsScoresIngested().increment();
-                    log.info("Ingested SS score for player {} on difficulty {}", resolvedSteamId, difficulty.getId());
+                    log.info("Ingested SS score for player {} on difficulty {}", resolvedUserId, difficulty.getId());
                 } catch (Exception e) {
                     log.error("Error submitting delayed SS score: {}", e.getMessage());
                 }

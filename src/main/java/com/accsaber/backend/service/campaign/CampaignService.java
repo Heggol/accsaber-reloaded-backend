@@ -93,8 +93,8 @@ public class CampaignService {
                                 .build();
         }
 
-        public CampaignProgressResponse getUserProgress(Long steamId, UUID campaignId) {
-                Long resolvedSteamId = duplicateUserService.resolvePrimaryUserId(steamId);
+        public CampaignProgressResponse getUserProgress(Long userId, UUID campaignId) {
+                Long resolvedUserId = duplicateUserService.resolvePrimaryUserId(userId);
                 Campaign campaign = campaignRepository.findByIdAndActiveTrue(campaignId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Campaign", campaignId));
 
@@ -112,7 +112,7 @@ public class CampaignService {
                                 .map(cm -> cm.getMapDifficulty().getId())
                                 .toList();
                 Map<UUID, Score> scoreByMapDifficultyId = scoreRepository
-                                .findByUser_IdAndMapDifficulty_IdInAndActiveTrue(resolvedSteamId, mapDifficultyIds)
+                                .findByUser_IdAndMapDifficulty_IdInAndActiveTrue(resolvedUserId, mapDifficultyIds)
                                 .stream()
                                 .collect(Collectors.toMap(s -> s.getMapDifficulty().getId(), s -> s));
 

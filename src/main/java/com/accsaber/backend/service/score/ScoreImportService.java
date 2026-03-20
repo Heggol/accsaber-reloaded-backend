@@ -419,23 +419,23 @@ public class ScoreImportService {
         try {
             if (PlatformScoreMapper.hasBannedModifier(blScore.getModifiers()))
                 return null;
-            Long steamId = duplicateUserService.resolvePrimaryUserId(
+            Long userId = duplicateUserService.resolvePrimaryUserId(
                     Long.parseLong(blScore.getPlayer().getId()));
             Optional<Score> existingScore = scoreRepository
-                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
+                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(userId, difficulty.getId());
             if (existingScore.isPresent()
                     && Objects.equals(existingScore.get().getScoreNoMods(), blScore.getBaseScore())) {
                 return null;
             }
-            playerImportService.ensurePlayerExists(steamId);
-            SubmitScoreRequest request = PlatformScoreMapper.fromBeatLeader(blScore, difficulty.getId(), steamId,
+            playerImportService.ensurePlayerExists(userId);
+            SubmitScoreRequest request = PlatformScoreMapper.fromBeatLeader(blScore, difficulty.getId(), userId,
                     modifiers);
             if (forBackfill) {
                 scoreService.submitForBackfill(request, difficulty, complexity);
             } else {
                 scoreService.submit(request);
             }
-            return steamId;
+            return userId;
         } catch (Exception e) {
             log.error("Failed to import BL score {} for difficulty {}: {}",
                     blScore.getId(), difficulty.getId(), e.getMessage());
@@ -453,23 +453,23 @@ public class ScoreImportService {
         try {
             if (PlatformScoreMapper.hasBannedModifier(ssScore.getModifiers()))
                 return null;
-            Long steamId = duplicateUserService.resolvePrimaryUserId(
+            Long userId = duplicateUserService.resolvePrimaryUserId(
                     Long.parseLong(ssScore.getLeaderboardPlayerInfo().getId()));
             Optional<Score> existingScore = scoreRepository
-                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(steamId, difficulty.getId());
+                    .findByUser_IdAndMapDifficulty_IdAndActiveTrue(userId, difficulty.getId());
             if (existingScore.isPresent()
                     && Objects.equals(existingScore.get().getScoreNoMods(), ssScore.getBaseScore())) {
                 return null;
             }
-            playerImportService.ensurePlayerExists(steamId);
-            SubmitScoreRequest request = PlatformScoreMapper.fromScoreSaber(ssScore, difficulty.getId(), steamId,
+            playerImportService.ensurePlayerExists(userId);
+            SubmitScoreRequest request = PlatformScoreMapper.fromScoreSaber(ssScore, difficulty.getId(), userId,
                     modifiers);
             if (forBackfill) {
                 scoreService.submitForBackfill(request, difficulty, complexity);
             } else {
                 scoreService.submit(request);
             }
-            return steamId;
+            return userId;
         } catch (Exception e) {
             log.error("Failed to import SS score {} for difficulty {}: {}",
                     ssScore.getId(), difficulty.getId(), e.getMessage());

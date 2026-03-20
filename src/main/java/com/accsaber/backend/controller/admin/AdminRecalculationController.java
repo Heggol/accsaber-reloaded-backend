@@ -78,10 +78,10 @@ public class AdminRecalculationController {
     }
 
 @Operation(summary = "Recalculate a player's statistics for a category")
-    @PostMapping("/stats/player/{steamId}")
-    public ResponseEntity<Void> recalculatePlayer(@PathVariable Long steamId,
+    @PostMapping("/stats/player/{userId}")
+    public ResponseEntity<Void> recalculatePlayer(@PathVariable Long userId,
             @RequestParam UUID categoryId) {
-        statisticsService.recalculate(steamId, categoryId);
+        statisticsService.recalculate(userId, categoryId);
         return ResponseEntity.accepted().build();
     }
 }

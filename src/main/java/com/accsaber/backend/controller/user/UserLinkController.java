@@ -32,9 +32,9 @@ public class UserLinkController {
     public ResponseEntity<UserResponse> getUserByLink(
             @RequestParam String url,
             @RequestParam(defaultValue = "false") boolean statistics) {
-        String steamId = profileUrlResolver.resolve(url);
-        Long userId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(steamId));
-        UserResponse user = userService.findBySteamId(userId);
+        String platformId = profileUrlResolver.resolve(url);
+        Long userId = duplicateUserService.resolvePrimaryUserId(Long.parseLong(platformId));
+        UserResponse user = userService.findByUserId(userId);
         if (statistics) {
             user = user.withStatistics(statisticsService.findAllByUser(userId));
         }

@@ -48,7 +48,7 @@ class PlayerImportServiceTest {
         @Test
         void returnsExistingUser_withoutApiCalls() {
             User existing = User.builder().id(STEAM_ID).name("Existing").build();
-            when(userService.findOptionalBySteamId(STEAM_ID)).thenReturn(Optional.of(existing));
+            when(userService.findOptionalByUserId(STEAM_ID)).thenReturn(Optional.of(existing));
 
             User result = playerImportService.ensurePlayerExists(STEAM_ID);
 
@@ -59,7 +59,7 @@ class PlayerImportServiceTest {
 
         @Test
         void createsUser_withBlNameAndAvatar() {
-            when(userService.findOptionalBySteamId(STEAM_ID)).thenReturn(Optional.empty());
+            when(userService.findOptionalByUserId(STEAM_ID)).thenReturn(Optional.empty());
 
             ScoreSaberPlayerResponse ssPlayer = new ScoreSaberPlayerResponse();
             ssPlayer.setId(String.valueOf(STEAM_ID));
@@ -87,7 +87,7 @@ class PlayerImportServiceTest {
 
         @Test
         void fallsBackToSsData_whenBlUnavailable() {
-            when(userService.findOptionalBySteamId(STEAM_ID)).thenReturn(Optional.empty());
+            when(userService.findOptionalByUserId(STEAM_ID)).thenReturn(Optional.empty());
             when(beatLeaderClient.getPlayer(String.valueOf(STEAM_ID))).thenReturn(Optional.empty());
 
             ScoreSaberPlayerResponse ssPlayer = new ScoreSaberPlayerResponse();
@@ -107,7 +107,7 @@ class PlayerImportServiceTest {
 
         @Test
         void usesUnknownName_whenBothPlatforms404() {
-            when(userService.findOptionalBySteamId(STEAM_ID)).thenReturn(Optional.empty());
+            when(userService.findOptionalByUserId(STEAM_ID)).thenReturn(Optional.empty());
             when(scoreSaberClient.getPlayer(anyString())).thenReturn(Optional.empty());
             when(beatLeaderClient.getPlayer(anyString())).thenReturn(Optional.empty());
 
@@ -122,7 +122,7 @@ class PlayerImportServiceTest {
         @Test
         void returnsExistingUser_onConcurrentCreate() {
             User existing = User.builder().id(STEAM_ID).name("Existing").build();
-            when(userService.findOptionalBySteamId(STEAM_ID))
+            when(userService.findOptionalByUserId(STEAM_ID))
                     .thenReturn(Optional.empty())
                     .thenReturn(Optional.of(existing));
             when(scoreSaberClient.getPlayer(anyString())).thenReturn(Optional.empty());

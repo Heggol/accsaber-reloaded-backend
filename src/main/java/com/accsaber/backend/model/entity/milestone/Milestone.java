@@ -9,10 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import com.accsaber.backend.model.dto.MilestoneQuerySpec;
 import com.accsaber.backend.model.entity.Category;
-import com.accsaber.backend.util.MilestoneQuerySpecConverter;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -68,7 +66,7 @@ public class Milestone {
     private BigDecimal xp = BigDecimal.ZERO;
 
     @Column(name = "query_spec", nullable = false, columnDefinition = "jsonb")
-    @Convert(converter = MilestoneQuerySpecConverter.class)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     private MilestoneQuerySpec querySpec;
 
     @Column(name = "target_value", nullable = false, precision = 20, scale = 6)

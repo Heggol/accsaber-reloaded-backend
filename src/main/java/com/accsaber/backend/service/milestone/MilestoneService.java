@@ -345,6 +345,34 @@ public class MilestoneService {
         }
     }
 
+    @Async("taskExecutor")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void backfillAllMilestones() {
+        List<Long> userIds = userRepository.findByActiveTrue().stream()
+                .map(User::getId)
+                .toList();
+        for (Long userId : userIds) {
+            try {
+                var evaluation = milestoneEvaluationService.evaluateAllForUser(userId);
+                awardMilestoneXp(userId, evaluation);
+            } catch (Exception e) {
+            }
+        }
+    }
+
+    private void awardMilestoneXp(Long userId, MilestoneEvaluationService.EvaluationResult evaluation) {
+        BigDecimal xp = BigDecimal.ZERO;
+        for (var m : evaluation.completedMilestones()) {
+            xp = xp.add(m.getXp() != null ? m.getXp() : BigDecimal.ZERO);
+        }
+        for (var s : evaluation.completedSets()) {
+            xp = xp.add(s.getSetBonusXp() != null ? s.getSetBonusXp() : BigDecimal.ZERO);
+        }
+        if (xp.compareTo(BigDecimal.ZERO) > 0) {
+            userRepository.addXp(userId, xp);
+        }
+    }
+
     @Transactional
     public void refreshCompletionStats() {
         completionStatsRepository.refresh();

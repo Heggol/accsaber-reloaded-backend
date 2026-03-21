@@ -99,9 +99,7 @@ public class AdminMilestoneController {
     public ResponseEntity<List<MilestoneResponse>> activateMilestones(
             @Valid @RequestBody ActivateMilestonesRequest request) {
         List<MilestoneResponse> responses = milestoneService.activateMilestones(request.getMilestoneIds());
-        for (MilestoneResponse milestone : responses) {
-            milestoneService.backfillMilestone(milestone.getId());
-        }
+        milestoneService.backfillAllMilestones();
         return ResponseEntity.ok(responses);
     }
 
@@ -149,10 +147,17 @@ public class AdminMilestoneController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Backfill a milestone for all users")
+    @Operation(summary = "Backfill a single milestone for all users")
     @PostMapping("/{id}/backfill")
     public ResponseEntity<Void> backfillMilestone(@PathVariable UUID id) {
         milestoneService.backfillMilestone(id);
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Backfill all active milestones for all users (batched per user)")
+    @PostMapping("/backfill-all")
+    public ResponseEntity<Void> backfillAllMilestones() {
+        milestoneService.backfillAllMilestones();
         return ResponseEntity.accepted().build();
     }
 

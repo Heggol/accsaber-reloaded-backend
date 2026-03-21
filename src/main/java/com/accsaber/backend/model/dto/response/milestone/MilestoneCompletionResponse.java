@@ -28,6 +28,7 @@ public class MilestoneCompletionResponse {
     private Long completions;
     private Long totalPlayers;
     private BigDecimal completionPercentage;
+    private BigDecimal userProgress;
     private Boolean userCompleted;
     private Instant userCompletedAt;
     private UUID achievedWithScoreId;

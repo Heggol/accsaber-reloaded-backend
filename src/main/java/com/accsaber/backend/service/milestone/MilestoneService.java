@@ -140,7 +140,7 @@ public class MilestoneService {
             Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
             List<UUID> milestoneIds = milestones.stream().map(Milestone::getId).toList();
             userLinkMap = userMilestoneLinkRepository
-                    .findCompletedByUserWithScoreDetails(resolved, milestoneIds).stream()
+                    .findByUserWithScoreDetails(resolved, milestoneIds).stream()
                     .collect(Collectors.toMap(l -> l.getMilestone().getId(), Function.identity()));
         }
 
@@ -534,7 +534,9 @@ public class MilestoneService {
                 .completionPercentage(stats != null ? stats.getCompletionPercentage() : BigDecimal.ZERO);
 
         if (userLink != null) {
-            builder.userCompleted(true).userCompletedAt(userLink.getCompletedAt());
+            builder.userProgress(userLink.getProgress())
+                    .userCompleted(userLink.isCompleted())
+                    .userCompletedAt(userLink.getCompletedAt());
             Score score = userLink.getAchievedWithScore();
             if (score != null) {
                 builder.achievedWithScoreId(score.getId())

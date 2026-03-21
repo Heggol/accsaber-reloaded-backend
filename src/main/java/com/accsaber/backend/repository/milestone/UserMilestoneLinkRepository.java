@@ -36,10 +36,10 @@ public interface UserMilestoneLinkRepository extends JpaRepository<UserMilestone
                         LEFT JOIN FETCH uml.achievedWithScore s
                         LEFT JOIN FETCH s.mapDifficulty md
                         LEFT JOIN FETCH md.map
-                        WHERE uml.user.id = :userId AND uml.completed = true
+                        WHERE uml.user.id = :userId
                         AND uml.milestone.id IN :milestoneIds
                         """)
-        List<UserMilestoneLink> findCompletedByUserWithScoreDetails(
+        List<UserMilestoneLink> findByUserWithScoreDetails(
                         @Param("userId") Long userId,
                         @Param("milestoneIds") List<UUID> milestoneIds);
 

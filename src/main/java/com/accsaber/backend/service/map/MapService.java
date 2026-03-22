@@ -54,9 +54,10 @@ public class MapService {
 
     public Page<MapResponse> findAll(UUID categoryId, MapDifficultyStatus status, String search, Pageable pageable) {
         boolean hasSearch = search != null && !search.isBlank();
+        Pageable effective = resolveMapSort(pageable);
         Page<Map> maps = hasSearch
-                ? mapRepository.findByDifficultyFiltersWithSearch(categoryId, status, search.trim(), pageable)
-                : mapRepository.findByDifficultyFilters(categoryId, status, pageable);
+                ? mapRepository.findByDifficultyFiltersWithSearch(categoryId, status, search.trim(), effective)
+                : mapRepository.findByDifficultyFilters(categoryId, status, effective);
         if (maps.isEmpty())
             return maps.map(m -> toMapResponse(m, List.of()));
 
@@ -80,12 +81,37 @@ public class MapService {
         });
     }
 
+    private Pageable resolveMapSort(Pageable pageable) {
+        if (!pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        Sort resolved = Sort.unsorted();
+        for (Sort.Order order : pageable.getSort()) {
+            String prop = order.getProperty();
+            if (isTextSortField(prop)) {
+                resolved = resolved.and(JpaSort.unsafe(order.getDirection(),
+                        "LOWER(" + prop + ")"));
+            } else {
+                resolved = resolved.and(Sort.by(order));
+            }
+        }
+        boolean hasId = pageable.getSort().stream().anyMatch(o -> "id".equals(o.getProperty()));
+        if (!hasId) {
+            resolved = resolved.and(Sort.by(Sort.Order.asc("id")));
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), resolved);
+    }
+
     private static final java.util.Map<String, String> JPQL_SORT_MAPPING = java.util.Map.of(
             "complexity", "c.complexity",
             "songName", "d.map.songName",
             "songAuthor", "d.map.songAuthor",
             "mapAuthor", "d.map.mapAuthor",
             "totalScores", "mds.totalScores");
+
+    private static boolean isTextSortField(String property) {
+        return "songName".equals(property) || "songAuthor".equals(property) || "mapAuthor".equals(property);
+    }
 
     private Pageable resolveDifficultySort(Pageable pageable) {
         if (!pageable.getSort().isSorted()) {
@@ -98,7 +124,9 @@ public class MapService {
                 resolved = resolved
                         .and(JpaSort.unsafe(Sort.Direction.ASC,
                                 "(CASE WHEN " + mapped + " IS NULL THEN 1 ELSE 0 END)"))
-                        .and(JpaSort.unsafe(order.getDirection(), mapped));
+                        .and(JpaSort.unsafe(order.getDirection(),
+                                isTextSortField(order.getProperty())
+                                        ? "LOWER(" + mapped + ")" : mapped));
             } else {
                 resolved = resolved.and(Sort.by(
                         new Sort.Order(order.getDirection(), order.getProperty(),

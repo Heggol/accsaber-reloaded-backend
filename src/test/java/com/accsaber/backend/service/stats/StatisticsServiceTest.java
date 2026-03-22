@@ -109,6 +109,8 @@ class StatisticsServiceTest {
                 lenient().when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
                 lenient().when(categoryRepository.findByIdAndActiveTrue(category.getId()))
                                 .thenReturn(Optional.of(category));
+                lenient().when(scoreRepository.sumXpGainedByUserIdSince(any(), any()))
+                                .thenReturn(BigDecimal.ZERO);
                 lenient().when(userMilestoneLinkRepository.sumMilestoneXpGainedLast24h(any()))
                                 .thenReturn(BigDecimal.ZERO);
                 lenient().when(userMilestoneSetBonusRepository.sumSetBonusXpGainedLast24h(any()))
@@ -409,6 +411,8 @@ class StatisticsServiceTest {
                                         .thenReturn(Optional.of(base));
                         when(statisticsRepository.findMostRecent(user.getId(), "true_acc"))
                                         .thenReturn(Optional.of(latest));
+                        when(scoreRepository.sumXpGainedByUserIdSince(any(), any()))
+                                        .thenReturn(new BigDecimal("150.000000"));
 
                         Optional<StatsDiffResponse> result = statisticsService.computeStatsDiff(user.getId(),
                                         "true_acc");

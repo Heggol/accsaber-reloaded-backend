@@ -211,6 +211,10 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
         @Query("SELECT COALESCE(SUM(s.xpGained), 0) FROM Score s WHERE s.user.id = :userId")
         java.math.BigDecimal sumXpGainedByUserId(@Param("userId") Long userId);
 
+        @Query("SELECT COALESCE(SUM(s.xpGained), 0) FROM Score s WHERE s.user.id = :userId AND s.createdAt >= :since")
+        java.math.BigDecimal sumXpGainedByUserIdSince(@Param("userId") Long userId,
+                        @Param("since") java.time.Instant since);
+
         @Query("SELECT DISTINCT s.mapDifficulty.id FROM Score s")
         List<UUID> findDistinctMapDifficultyIds();
 

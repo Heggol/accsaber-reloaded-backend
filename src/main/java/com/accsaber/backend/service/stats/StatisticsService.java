@@ -163,9 +163,12 @@ public class StatisticsService {
     public Optional<StatsDiffResponse> computeStatsDiff(Long userId, String categoryCode) {
         Long resolved = duplicateUserService.resolvePrimaryUserId(userId);
 
+        Instant since = Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS);
+        BigDecimal scoreXpDiff = scoreRepository.sumXpGainedByUserIdSince(resolved, since);
         BigDecimal milestoneXpDiff = userMilestoneLinkRepository.sumMilestoneXpGainedLast24h(resolved);
         BigDecimal milestoneSetBonusXpDiff = userMilestoneSetBonusRepository.sumSetBonusXpGainedLast24h(resolved);
-        boolean hasMilestoneXp = milestoneXpDiff.compareTo(BigDecimal.ZERO) > 0
+        boolean hasAnyXp = scoreXpDiff.compareTo(BigDecimal.ZERO) > 0
+                || milestoneXpDiff.compareTo(BigDecimal.ZERO) > 0
                 || milestoneSetBonusXpDiff.compareTo(BigDecimal.ZERO) > 0;
 
         Optional<UserCategoryStatistics> baseOpt = statisticsRepository
@@ -174,11 +177,12 @@ public class StatisticsService {
                 .findMostRecent(resolved, categoryCode);
 
         if (baseOpt.isEmpty() || latestOpt.isEmpty()) {
-            if (hasMilestoneXp) {
+            if (hasAnyXp) {
                 return Optional.of(StatsDiffResponse.builder()
+                        .scoreXpDiff(scoreXpDiff)
                         .milestoneXpDiff(milestoneXpDiff)
                         .milestoneSetBonusXpDiff(milestoneSetBonusXpDiff)
-                        .from(Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS))
+                        .from(since)
                         .to(Instant.now())
                         .build());
             }
@@ -191,7 +195,7 @@ public class StatisticsService {
         return Optional.of(StatsDiffResponse.builder()
                 .categoryId(latest.getCategory().getId())
                 .apDiff(latest.getAp().subtract(base.getAp()))
-                .scoreXpDiff(latest.getScoreXp().subtract(base.getScoreXp()))
+                .scoreXpDiff(scoreXpDiff)
                 .milestoneXpDiff(milestoneXpDiff)
                 .milestoneSetBonusXpDiff(milestoneSetBonusXpDiff)
                 .averageAccDiff(diffNullable(latest.getAverageAcc(), base.getAverageAcc()))

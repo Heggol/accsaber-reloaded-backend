@@ -65,7 +65,8 @@ public interface UserMilestoneLinkRepository extends JpaRepository<UserMilestone
                         FROM user_milestone_links uml
                         JOIN milestones m ON uml.milestone_id = m.id
                         WHERE uml.user_id = :userId AND uml.completed = true
-                        AND uml.created_at >= NOW() - INTERVAL '24 hours'
+                        AND (uml.created_at >= NOW() - INTERVAL '24 hours'
+                        OR uml.completed_at >= NOW() - INTERVAL '24 hours')
                         """, nativeQuery = true)
         BigDecimal sumMilestoneXpGainedLast24h(@Param("userId") Long userId);
 

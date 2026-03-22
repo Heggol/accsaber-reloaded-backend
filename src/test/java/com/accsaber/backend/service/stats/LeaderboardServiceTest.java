@@ -29,6 +29,7 @@ import com.accsaber.backend.model.entity.user.UserCategoryStatistics;
 import com.accsaber.backend.repository.CategoryRepository;
 import com.accsaber.backend.repository.user.UserCategoryStatisticsRepository;
 import com.accsaber.backend.repository.user.UserRepository;
+import com.accsaber.backend.repository.user.UserXpRankingHistoryRepository;
 import com.accsaber.backend.service.milestone.LevelService;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +42,8 @@ class LeaderboardServiceTest {
         @Mock
         private UserRepository userRepository;
         @Mock
+        private UserXpRankingHistoryRepository xpRankingHistoryRepository;
+        @Mock
         private LevelService levelService;
 
         private LeaderboardService leaderboardService;
@@ -50,7 +53,7 @@ class LeaderboardServiceTest {
         @BeforeEach
         void setUp() {
                 leaderboardService = new LeaderboardService(statisticsRepository, categoryRepository,
-                                userRepository, levelService);
+                                userRepository, xpRankingHistoryRepository, levelService);
 
                 org.mockito.Mockito.lenient().when(statisticsRepository.findRankingsOneWeekAgo(any(), any()))
                                 .thenReturn(List.of());

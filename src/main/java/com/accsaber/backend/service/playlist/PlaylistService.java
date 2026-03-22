@@ -40,8 +40,14 @@ public class PlaylistService {
         Category category = categoryRepository.findByCodeAndActiveTrue(categoryCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", categoryCode));
 
-        List<MapDifficulty> rankedDifficulties = mapDifficultyRepository
-                .findByCategoryIdAndStatusWithMap(category.getId(), MapDifficultyStatus.RANKED);
+        List<MapDifficulty> rankedDifficulties;
+        if ("overall".equals(categoryCode)) {
+            rankedDifficulties = mapDifficultyRepository
+                    .findByCountForOverallAndStatusWithMap(MapDifficultyStatus.RANKED);
+        } else {
+            rankedDifficulties = mapDifficultyRepository
+                    .findByCategoryIdAndStatusWithMap(category.getId(), MapDifficultyStatus.RANKED);
+        }
 
         Map<String, Object> playlist = new LinkedHashMap<>();
         playlist.put("playlistTitle", "AccSaber " + category.getName() + " Ranked Maps");

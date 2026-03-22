@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +37,7 @@ public class LeaderboardService {
     private final UserXpRankingHistoryRepository xpRankingHistoryRepository;
     private final LevelService levelService;
 
+    @Cacheable(value = "leaderboards", key = "'global:' + #categoryId + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Page<LeaderboardResponse> getGlobal(UUID categoryId, String search, Pageable pageable) {
         verifyCategory(categoryId);
         boolean hasSearch = search != null && !search.isBlank();
@@ -46,6 +48,7 @@ public class LeaderboardService {
         return enrichWithLastWeekRanking(page, categoryId);
     }
 
+    @Cacheable(value = "leaderboards", key = "'country:' + #categoryId + ':' + #country + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Page<LeaderboardResponse> getByCountry(UUID categoryId, String country, String search, Pageable pageable) {
         verifyCategory(categoryId);
         boolean hasSearch = search != null && !search.isBlank();

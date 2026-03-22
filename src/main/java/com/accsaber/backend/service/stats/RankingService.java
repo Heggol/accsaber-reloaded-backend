@@ -4,6 +4,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -21,6 +22,7 @@ public class RankingService {
 
     private final ConcurrentHashMap<UUID, ReentrantLock> categoryLocks = new ConcurrentHashMap<>();
 
+    @CacheEvict(value = "leaderboards", allEntries = true)
     public void updateRankings(UUID categoryId) {
         ReentrantLock lock = categoryLocks.computeIfAbsent(categoryId, k -> new ReentrantLock());
         lock.lock();

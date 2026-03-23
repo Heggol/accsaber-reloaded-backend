@@ -218,12 +218,13 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
         @Query("""
                         SELECT DISTINCT s FROM Score s
                         JOIN ScoreModifierLink sml ON sml.score.id = s.id
+                        JOIN FETCH s.user u
                         JOIN FETCH s.mapDifficulty d
                         JOIN FETCH d.category c
                         LEFT JOIN FETCH c.scoreCurve
-                        WHERE s.active = true AND s.blScoreId IS NOT NULL
+                        WHERE s.active = true
                         """)
-        List<Score> findActiveScoresWithModifiersAndBlScoreId();
+        List<Score> findActiveScoresWithModifierLinks();
 
         @Query("""
                         SELECT s FROM Score s
@@ -231,9 +232,10 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
                         JOIN FETCH s.mapDifficulty d
                         JOIN FETCH d.category c
                         LEFT JOIN FETCH c.scoreCurve
-                        WHERE s.active = true AND s.score <> s.scoreNoMods
+                        WHERE s.active = true AND s.score > s.scoreNoMods
+                        AND NOT EXISTS (SELECT 1 FROM ScoreModifierLink sml WHERE sml.score.id = s.id)
                         """)
-        List<Score> findActiveScoresWhereScoreDiffersFromScoreNoMods();
+        List<Score> findActiveScoresInflatedWithoutModifierLinks();
 
         @Query("SELECT DISTINCT s.mapDifficulty.id FROM Score s")
         List<UUID> findDistinctMapDifficultyIds();

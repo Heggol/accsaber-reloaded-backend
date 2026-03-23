@@ -79,8 +79,11 @@ public class AdminRecalculationController {
         return ResponseEntity.accepted().build();
     }
 
-    @Operation(summary = "Correct modifier scores from BeatLeader",
-            description = "Fetches correct baseScore from BeatLeader for all active scores with modifiers, corrects score/scoreNoMods, and recalculates AP.")
+    @Operation(summary = "Correct inflated modifier scores",
+            description = "Two-pass DB-only correction using scoreNoMods as source of truth. "
+                    + "Pass 1: recomputes score = scoreNoMods * combined modifier multiplier for all scores with modifier links. "
+                    + "Pass 2: sets score = scoreNoMods for inflated scores (score > scoreNoMods) without modifier links. "
+                    + "Recalculates AP, reassigns ranks, and updates stats for all affected scores.")
     @PostMapping("/scores/correct-modifiers")
     public ResponseEntity<Void> correctModifierScores() {
         scoreCorrectionService.correctModifierScoresAsync();

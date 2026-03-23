@@ -89,6 +89,23 @@ public class UserService {
     }
 
     @Transactional
+    public User overrideCountry(Long userId, String country) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        user.setCountry(country);
+        user.setCountryOverride(true);
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User clearCountryOverride(Long userId) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        user.setCountryOverride(false);
+        return userRepository.save(user);
+    }
+
+    @Transactional
     public void setBanned(Long userId, boolean banned) {
         User user = userRepository.findByIdAndActiveTrue(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));

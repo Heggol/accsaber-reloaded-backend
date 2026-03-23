@@ -79,10 +79,15 @@ public class PlayerImportService {
                                 .or(() -> ssProfile.map(ScoreSaberPlayerResponse::getProfilePicture))
                                 .orElse(null);
 
-                String country = blProfile.map(BeatLeaderPlayerResponse::getCountry)
-                                .filter(c -> !c.isBlank() && !c.equalsIgnoreCase("not set"))
-                                .or(() -> ssProfile.map(ScoreSaberPlayerResponse::getCountry))
-                                .orElse(null);
+                boolean countryOverridden = userService.findOptionalByUserId(userId)
+                                .map(User::isCountryOverride)
+                                .orElse(false);
+
+                String country = countryOverridden ? null
+                                : blProfile.map(BeatLeaderPlayerResponse::getCountry)
+                                                .filter(c -> !c.isBlank() && !c.equalsIgnoreCase("not set"))
+                                                .or(() -> ssProfile.map(ScoreSaberPlayerResponse::getCountry))
+                                                .orElse(null);
 
                 userService.updateProfile(userId, name, avatarUrl, country);
                 log.debug("Refreshed profile for player {}", userId);

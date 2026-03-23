@@ -36,6 +36,10 @@ public class User {
 
     private String country;
 
+    @Column(name = "country_override", nullable = false)
+    @Builder.Default
+    private boolean countryOverride = false;
+
     @Column(name = "total_xp", nullable = false, precision = 20, scale = 6)
     @Builder.Default
     private BigDecimal totalXp = BigDecimal.ZERO;

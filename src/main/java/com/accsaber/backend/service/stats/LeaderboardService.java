@@ -37,7 +37,7 @@ public class LeaderboardService {
     private final UserXpRankingHistoryRepository xpRankingHistoryRepository;
     private final LevelService levelService;
 
-    @Cacheable(value = "leaderboards", key = "'global:' + #categoryId + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
+    @Cacheable(value = "leaderboards", key = "'global:' + #categoryId + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()")
     public Page<LeaderboardResponse> getGlobal(UUID categoryId, String search, Pageable pageable) {
         verifyCategory(categoryId);
         boolean hasSearch = search != null && !search.isBlank();
@@ -48,7 +48,7 @@ public class LeaderboardService {
         return enrichWithLastWeekRanking(page, categoryId);
     }
 
-    @Cacheable(value = "leaderboards", key = "'country:' + #categoryId + ':' + #country + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
+    @Cacheable(value = "leaderboards", key = "'country:' + #categoryId + ':' + #country + ':' + #search + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()")
     public Page<LeaderboardResponse> getByCountry(UUID categoryId, String country, String search, Pageable pageable) {
         verifyCategory(categoryId);
         boolean hasSearch = search != null && !search.isBlank();

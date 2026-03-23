@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -18,10 +17,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.accsaber.backend.client.BeatLeaderClient;
 import com.accsaber.backend.exception.ResourceNotFoundException;
 import com.accsaber.backend.model.dto.APResult;
-import com.accsaber.backend.model.dto.platform.beatleader.BeatLeaderScoreResponse;
 import com.accsaber.backend.model.entity.Modifier;
 import com.accsaber.backend.model.entity.score.Score;
 import com.accsaber.backend.model.entity.score.ScoreModifierLink;
@@ -47,7 +44,6 @@ public class ScoreCorrectionService {
     private final ScoreRepository scoreRepository;
     private final ScoreModifierLinkRepository modifierLinkRepository;
     private final UserRepository userRepository;
-    private final BeatLeaderClient beatLeaderClient;
     private final APCalculationService apCalculationService;
     private final MapDifficultyComplexityService mapComplexityService;
     private final MapDifficultyStatisticsService mapDifficultyStatisticsService;
@@ -60,72 +56,77 @@ public class ScoreCorrectionService {
     @Qualifier("backfillExecutor")
     private Executor backfillExecutor;
 
+    @Transactional
     @Async("taskExecutor")
     public void correctModifierScoresAsync() {
-        log.info("Starting modifier score correction");
+        log.info("Starting modifier score correction (DB-only, using scoreNoMods as source of truth)");
 
-        List<Score> scores = scoreRepository.findActiveScoresWithModifiersAndBlScoreId();
-        log.info("Found {} active scores with modifiers and BL score IDs to check", scores.size());
+        List<Score> scores = scoreRepository.findActiveScoresWhereScoreDiffersFromScoreNoMods();
+        log.info("Found {} active scores where score != scoreNoMods", scores.size());
 
         int corrected = 0;
-        int skipped = 0;
         int failed = 0;
         ConcurrentHashMap<UUID, Set<Long>> affectedByCategory = new ConcurrentHashMap<>();
         Set<UUID> affectedDifficulties = new HashSet<>();
 
-        int batchSize = 8;
-        long delayMs = 1000;
+        for (int i = 0; i < scores.size(); i++) {
+            Score score = scores.get(i);
+            try {
+                List<Modifier> modifiers = modifierLinkRepository.findByScore_Id(score.getId()).stream()
+                        .map(ScoreModifierLink::getModifier)
+                        .toList();
 
-        for (int i = 0; i < scores.size(); i += batchSize) {
-            List<Score> batch = scores.subList(i, Math.min(i + batchSize, scores.size()));
+                Integer correctedScore = applyModifierMultiplier(score.getScoreNoMods(), modifiers);
 
-            List<CompletableFuture<Boolean>> futures = batch.stream()
-                    .map(score -> CompletableFuture.supplyAsync(() -> {
-                        try {
-                            return correctSingleScore(score);
-                        } catch (Exception e) {
-                            log.error("Failed to correct score {} (BL {}): {}",
-                                    score.getId(), score.getBlScoreId(), e.getMessage());
-                            return null;
-                        }
-                    }, backfillExecutor))
-                    .toList();
-
-            for (int j = 0; j < futures.size(); j++) {
-                Boolean result = futures.get(j).join();
-                Score score = batch.get(j);
-                if (result == null) {
-                    failed++;
-                } else if (result) {
-                    corrected++;
-                    affectedByCategory.computeIfAbsent(
-                            score.getMapDifficulty().getCategory().getId(),
-                            k -> ConcurrentHashMap.newKeySet())
-                            .add(score.getUser().getId());
-                    affectedDifficulties.add(score.getMapDifficulty().getId());
-                } else {
-                    skipped++;
+                if (Objects.equals(score.getScore(), correctedScore)) {
+                    continue;
                 }
+
+                Integer maxScore = score.getMapDifficulty().getMaxScore();
+                if (maxScore == null || maxScore == 0) {
+                    log.warn("Score {} has no maxScore on difficulty - skipping", score.getId());
+                    continue;
+                }
+
+                BigDecimal accuracy = BigDecimal.valueOf(correctedScore)
+                        .divide(BigDecimal.valueOf(maxScore), ACCURACY_SCALE, RoundingMode.HALF_UP);
+                BigDecimal complexity = mapComplexityService.findActiveComplexity(score.getMapDifficulty().getId())
+                        .orElse(null);
+                if (complexity == null) {
+                    log.warn("Score {} has no active complexity - skipping", score.getId());
+                    continue;
+                }
+
+                APResult apResult = apCalculationService.calculateRawAP(
+                        accuracy, complexity, score.getMapDifficulty().getCategory().getScoreCurve());
+
+                log.info("Correcting score {} (user {}): score {} -> {}, ap {} -> {}",
+                        score.getId(), score.getUser().getId(),
+                        score.getScore(), correctedScore, score.getAp(), apResult.rawAP());
+
+                score.setScore(correctedScore);
+                score.setAp(apResult.rawAP());
+                scoreRepository.save(score);
+
+                corrected++;
+                affectedByCategory.computeIfAbsent(
+                        score.getMapDifficulty().getCategory().getId(),
+                        k -> ConcurrentHashMap.newKeySet())
+                        .add(score.getUser().getId());
+                affectedDifficulties.add(score.getMapDifficulty().getId());
+            } catch (Exception e) {
+                failed++;
+                log.error("Failed to correct score {}: {}", score.getId(), e.getMessage());
             }
 
-            if (i + batchSize < scores.size()) {
-                try {
-                    Thread.sleep(delayMs);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.warn("Score correction interrupted at {}/{}", i + batchSize, scores.size());
-                    break;
-                }
-            }
-
-            if ((i / batchSize + 1) % 50 == 0) {
+            if ((i + 1) % 100 == 0) {
                 log.info("Score correction progress: {}/{} checked, {} corrected so far",
-                        Math.min(i + batchSize, scores.size()), scores.size(), corrected);
+                        i + 1, scores.size(), corrected);
             }
         }
 
-        log.info("Score correction phase done: {} corrected, {} unchanged, {} failed",
-                corrected, skipped, failed);
+        log.info("Score correction phase done: {} corrected, {} failed out of {} checked",
+                corrected, failed, scores.size());
 
         if (corrected == 0) {
             log.info("No scores were corrected - skipping recalculations");
@@ -144,58 +145,7 @@ public class ScoreCorrectionService {
         }
         overallStatisticsService.updateOverallRankings();
 
-        log.info("Modifier score correction complete: {} corrected, {} unchanged, {} failed",
-                corrected, skipped, failed);
-    }
-
-    @Transactional
-    public boolean correctSingleScore(Score score) {
-        Optional<BeatLeaderScoreResponse> blResponse = beatLeaderClient.getScore(score.getBlScoreId());
-        if (blResponse.isEmpty()) {
-            log.warn("BL score {} not found - skipping correction for score {}", score.getBlScoreId(), score.getId());
-            return false;
-        }
-
-        BeatLeaderScoreResponse bl = blResponse.get();
-        Integer correctBaseScore = bl.getBaseScore();
-
-        if (score.getBlScoreId() % 100 == 0 || !Objects.equals(score.getScoreNoMods(), correctBaseScore)) {
-            log.info("Score {} (BL {}): DB scoreNoMods={}, DB score={}, BL baseScore={}, BL modifiedScore={}",
-                    score.getId(), score.getBlScoreId(), score.getScoreNoMods(), score.getScore(),
-                    correctBaseScore, bl.getModifiedScore());
-        }
-
-        if (Objects.equals(score.getScoreNoMods(), correctBaseScore)) {
-            return false;
-        }
-
-        log.info("Correcting score {} (BL {}): scoreNoMods {} -> {}, score {} -> recalculated",
-                score.getId(), score.getBlScoreId(), score.getScoreNoMods(), correctBaseScore, score.getScore());
-
-        List<Modifier> modifiers = modifierLinkRepository.findByScore_Id(score.getId()).stream()
-                .map(ScoreModifierLink::getModifier)
-                .toList();
-
-        Integer correctedScore = applyModifierMultiplier(correctBaseScore, modifiers);
-
-        score.setScoreNoMods(correctBaseScore);
-        score.setScore(correctedScore);
-
-        Integer maxScore = score.getMapDifficulty().getMaxScore();
-        if (maxScore != null && maxScore > 0) {
-            BigDecimal accuracy = BigDecimal.valueOf(correctedScore)
-                    .divide(BigDecimal.valueOf(maxScore), ACCURACY_SCALE, RoundingMode.HALF_UP);
-            BigDecimal complexity = mapComplexityService.findActiveComplexity(score.getMapDifficulty().getId())
-                    .orElse(null);
-            if (complexity != null) {
-                APResult apResult = apCalculationService.calculateRawAP(
-                        accuracy, complexity, score.getMapDifficulty().getCategory().getScoreCurve());
-                score.setAp(apResult.rawAP());
-            }
-        }
-
-        scoreRepository.save(score);
-        return true;
+        log.info("Modifier score correction complete: {} corrected, {} failed", corrected, failed);
     }
 
     private Integer applyModifierMultiplier(Integer baseScore, List<Modifier> modifiers) {

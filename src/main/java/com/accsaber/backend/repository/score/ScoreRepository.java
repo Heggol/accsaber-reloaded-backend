@@ -225,6 +225,16 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
                         """)
         List<Score> findActiveScoresWithModifiersAndBlScoreId();
 
+        @Query("""
+                        SELECT s FROM Score s
+                        JOIN FETCH s.user u
+                        JOIN FETCH s.mapDifficulty d
+                        JOIN FETCH d.category c
+                        LEFT JOIN FETCH c.scoreCurve
+                        WHERE s.active = true AND s.score <> s.scoreNoMods
+                        """)
+        List<Score> findActiveScoresWhereScoreDiffersFromScoreNoMods();
+
         @Query("SELECT DISTINCT s.mapDifficulty.id FROM Score s")
         List<UUID> findDistinctMapDifficultyIds();
 

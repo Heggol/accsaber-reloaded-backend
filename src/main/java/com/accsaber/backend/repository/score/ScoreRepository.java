@@ -215,6 +215,16 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
         java.math.BigDecimal sumXpGainedByUserIdSince(@Param("userId") Long userId,
                         @Param("since") java.time.Instant since);
 
+        @Query("""
+                        SELECT DISTINCT s FROM Score s
+                        JOIN ScoreModifierLink sml ON sml.score.id = s.id
+                        JOIN FETCH s.mapDifficulty d
+                        JOIN FETCH d.category c
+                        LEFT JOIN FETCH c.scoreCurve
+                        WHERE s.active = true AND s.blScoreId IS NOT NULL
+                        """)
+        List<Score> findActiveScoresWithModifiersAndBlScoreId();
+
         @Query("SELECT DISTINCT s.mapDifficulty.id FROM Score s")
         List<UUID> findDistinctMapDifficultyIds();
 

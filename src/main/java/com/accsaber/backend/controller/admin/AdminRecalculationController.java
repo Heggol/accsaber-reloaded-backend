@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.accsaber.backend.service.score.ScoreCorrectionService;
 import com.accsaber.backend.service.score.ScoreRecalculationService;
 import com.accsaber.backend.service.score.XPReweightService;
 import com.accsaber.backend.service.stats.StatisticsService;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "Admin Recalculation")
 public class AdminRecalculationController {
 
+    private final ScoreCorrectionService scoreCorrectionService;
     private final ScoreRecalculationService scoreRecalculationService;
     private final StatisticsService statisticsService;
     private final XPReweightService xpReweightService;
@@ -77,7 +79,15 @@ public class AdminRecalculationController {
         return ResponseEntity.accepted().build();
     }
 
-@Operation(summary = "Recalculate a player's statistics for a category")
+    @Operation(summary = "Correct modifier scores from BeatLeader",
+            description = "Fetches correct baseScore from BeatLeader for all active scores with modifiers, corrects score/scoreNoMods, and recalculates AP.")
+    @PostMapping("/scores/correct-modifiers")
+    public ResponseEntity<Void> correctModifierScores() {
+        scoreCorrectionService.correctModifierScoresAsync();
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Recalculate a player's statistics for a category")
     @PostMapping("/stats/player/{userId}")
     public ResponseEntity<Void> recalculatePlayer(@PathVariable Long userId,
             @RequestParam UUID categoryId) {

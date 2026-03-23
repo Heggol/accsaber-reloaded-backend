@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.accsaber.backend.client.BeatLeaderClient;
+import com.accsaber.backend.exception.ResourceNotFoundException;
 import com.accsaber.backend.model.dto.APResult;
 import com.accsaber.backend.model.dto.platform.beatleader.BeatLeaderScoreResponse;
 import com.accsaber.backend.model.entity.Modifier;
@@ -26,7 +27,9 @@ import com.accsaber.backend.model.entity.score.Score;
 import com.accsaber.backend.model.entity.score.ScoreModifierLink;
 import com.accsaber.backend.repository.score.ScoreModifierLinkRepository;
 import com.accsaber.backend.repository.score.ScoreRepository;
+import com.accsaber.backend.repository.user.UserRepository;
 import com.accsaber.backend.service.map.MapDifficultyComplexityService;
+import com.accsaber.backend.service.map.MapDifficultyStatisticsService;
 import com.accsaber.backend.service.stats.OverallStatisticsService;
 import com.accsaber.backend.service.stats.RankingService;
 import com.accsaber.backend.service.stats.StatisticsService;
@@ -43,9 +46,11 @@ public class ScoreCorrectionService {
 
     private final ScoreRepository scoreRepository;
     private final ScoreModifierLinkRepository modifierLinkRepository;
+    private final UserRepository userRepository;
     private final BeatLeaderClient beatLeaderClient;
     private final APCalculationService apCalculationService;
     private final MapDifficultyComplexityService mapComplexityService;
+    private final MapDifficultyStatisticsService mapDifficultyStatisticsService;
     private final StatisticsService statisticsService;
     private final OverallStatisticsService overallStatisticsService;
     private final RankingService rankingService;
@@ -154,11 +159,17 @@ public class ScoreCorrectionService {
         BeatLeaderScoreResponse bl = blResponse.get();
         Integer correctBaseScore = bl.getBaseScore();
 
+        if (score.getBlScoreId() % 100 == 0 || !Objects.equals(score.getScoreNoMods(), correctBaseScore)) {
+            log.info("Score {} (BL {}): DB scoreNoMods={}, DB score={}, BL baseScore={}, BL modifiedScore={}",
+                    score.getId(), score.getBlScoreId(), score.getScoreNoMods(), score.getScore(),
+                    correctBaseScore, bl.getModifiedScore());
+        }
+
         if (Objects.equals(score.getScoreNoMods(), correctBaseScore)) {
             return false;
         }
 
-        log.debug("Correcting score {} (BL {}): scoreNoMods {} -> {}, score {} -> recalculated",
+        log.info("Correcting score {} (BL {}): scoreNoMods {} -> {}, score {} -> recalculated",
                 score.getId(), score.getBlScoreId(), score.getScoreNoMods(), correctBaseScore, score.getScore());
 
         List<Modifier> modifiers = modifierLinkRepository.findByScore_Id(score.getId()).stream()
@@ -195,6 +206,41 @@ public class ScoreCorrectionService {
                 .reduce(BigDecimal.ONE, BigDecimal::multiply);
         return combined.multiply(BigDecimal.valueOf(baseScore))
                 .setScale(0, RoundingMode.HALF_UP).intValue();
+    }
+
+    @Transactional
+    public void removeScore(Long userId, UUID mapDifficultyId, String reason) {
+        List<UUID> scoreIds = scoreRepository.findIdsByUserAndDifficulty(userId, mapDifficultyId);
+        if (scoreIds.isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "Scores for user " + userId + " on difficulty " + mapDifficultyId);
+        }
+
+        Score activeScore = scoreRepository.findByUser_IdAndMapDifficulty_IdAndActiveTrue(userId, mapDifficultyId)
+                .orElse(null);
+        UUID categoryId = activeScore != null
+                ? activeScore.getMapDifficulty().getCategory().getId()
+                : null;
+
+        scoreRepository.nullifySupersedesReferences(scoreIds);
+        scoreRepository.nullifyTopPlayReferences(scoreIds);
+        scoreRepository.nullifyMilestoneScoreReferences(scoreIds);
+        scoreRepository.deleteMergeScoreActions(scoreIds);
+        scoreRepository.hardDeleteByIds(scoreIds);
+        scoreRepository.flush();
+
+        log.info("Hard-deleted {} score(s) for user {} on difficulty {} - reason: {}",
+                scoreIds.size(), userId, mapDifficultyId, reason);
+
+        userRepository.recalculateTotalXpForAllActiveUsers();
+        scoreRankingService.reassignRanks(mapDifficultyId);
+
+        if (categoryId != null) {
+            mapDifficultyStatisticsService.recalculate(
+                    activeScore.getMapDifficulty(), userId);
+            statisticsService.recalculate(userId, categoryId);
+            rankingService.updateRankingsAsync(categoryId);
+        }
     }
 
     private void batchRecalculateStats(Set<Long> userIds, UUID categoryId) {

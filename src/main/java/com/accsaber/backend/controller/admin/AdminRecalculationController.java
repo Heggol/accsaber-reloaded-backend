@@ -94,4 +94,14 @@ public class AdminRecalculationController {
         statisticsService.recalculate(userId, categoryId);
         return ResponseEntity.accepted().build();
     }
+
+    @Operation(summary = "Remove a wrongly-attributed score",
+            description = "Deactivates a user's active score on a map difficulty, reverses XP, and recalculates rankings/stats.")
+    @PostMapping("/scores/remove")
+    public ResponseEntity<Void> removeScore(@RequestParam Long userId,
+            @RequestParam UUID mapDifficultyId,
+            @RequestParam(required = false) String reason) {
+        scoreCorrectionService.removeScore(userId, mapDifficultyId, reason);
+        return ResponseEntity.ok().build();
+    }
 }

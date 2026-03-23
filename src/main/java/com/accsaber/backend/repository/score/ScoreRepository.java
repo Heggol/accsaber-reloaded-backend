@@ -321,4 +321,28 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
                         WHERE map_difficulty_id = :difficultyId AND active = true AND rank > :removedRank
                         """, nativeQuery = true)
         void shiftScoreRanksUp(@Param("difficultyId") UUID difficultyId, @Param("removedRank") int removedRank);
+
+        @Query("SELECT s.id FROM Score s WHERE s.user.id = :userId AND s.mapDifficulty.id = :difficultyId")
+        List<UUID> findIdsByUserAndDifficulty(@Param("userId") Long userId,
+                        @Param("difficultyId") UUID difficultyId);
+
+        @Modifying
+        @Query(value = "UPDATE scores SET supersedes_id = NULL WHERE supersedes_id IN (:scoreIds)", nativeQuery = true)
+        void nullifySupersedesReferences(@Param("scoreIds") List<UUID> scoreIds);
+
+        @Modifying
+        @Query(value = "UPDATE user_category_statistics SET top_play_id = NULL WHERE top_play_id IN (:scoreIds)", nativeQuery = true)
+        void nullifyTopPlayReferences(@Param("scoreIds") List<UUID> scoreIds);
+
+        @Modifying
+        @Query(value = "UPDATE user_milestone_links SET achieved_with_score_id = NULL WHERE achieved_with_score_id IN (:scoreIds)", nativeQuery = true)
+        void nullifyMilestoneScoreReferences(@Param("scoreIds") List<UUID> scoreIds);
+
+        @Modifying
+        @Query(value = "DELETE FROM merge_score_actions WHERE score_id IN (:scoreIds)", nativeQuery = true)
+        void deleteMergeScoreActions(@Param("scoreIds") List<UUID> scoreIds);
+
+        @Modifying
+        @Query(value = "DELETE FROM scores WHERE id IN (:scoreIds)", nativeQuery = true)
+        void hardDeleteByIds(@Param("scoreIds") List<UUID> scoreIds);
 }

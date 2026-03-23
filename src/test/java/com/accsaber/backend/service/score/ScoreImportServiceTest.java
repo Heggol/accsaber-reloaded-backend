@@ -171,7 +171,7 @@ class ScoreImportServiceTest {
                 @Test
                 void skipsScore_withBannedModifier() {
                         when(beatLeaderClient.getLeaderboardScores("bl_123", 1, 100))
-                                        .thenReturn(List.of(buildBlScore("SF")));
+                                        .thenReturn(List.of(buildBlScore("NO")));
                         when(scoreSaberClient.getLeaderboardScores("ss_456", 1)).thenReturn(null);
 
                         scoreImportService.backfillDifficulty(difficulty);

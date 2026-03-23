@@ -141,7 +141,7 @@ class ScoreIngestionServiceTest {
 
                 @Test
                 void skipsScore_withBannedModifier() {
-                        BeatLeaderScoreResponse blScore = buildBlScore("bl_123", "SF");
+                        BeatLeaderScoreResponse blScore = buildBlScore("bl_123", "NO");
                         when(mapDifficultyRepository.findByBlLeaderboardId("bl_123"))
                                         .thenReturn(Optional.of(difficulty));
 

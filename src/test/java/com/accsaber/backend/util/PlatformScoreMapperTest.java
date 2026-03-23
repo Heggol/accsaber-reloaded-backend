@@ -169,7 +169,7 @@ class PlatformScoreMapperTest {
 
         @Test
         void returnsTrue_whenBannedMixedWithAllowed() {
-            assertThat(PlatformScoreMapper.hasBannedModifier("NF,SF")).isTrue();
+            assertThat(PlatformScoreMapper.hasBannedModifier("NF,NO")).isTrue();
         }
     }
 

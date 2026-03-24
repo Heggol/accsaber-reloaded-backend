@@ -15,7 +15,7 @@ public interface UserXpRankingHistoryRepository extends JpaRepository<UserXpRank
         @Modifying
         @Query(value = """
                         INSERT INTO user_xp_ranking_history (id, user_id, xp_ranking, xp_country_ranking, recorded_at)
-                        SELECT gen_random_uuid(), u.id, u.xp_ranking, u.xp_country_ranking, NOW()
+                        SELECT uuidv7(), u.id, u.xp_ranking, u.xp_country_ranking, NOW()
                         FROM users u
                         LEFT JOIN LATERAL (
                                 SELECT h.xp_ranking, h.xp_country_ranking
